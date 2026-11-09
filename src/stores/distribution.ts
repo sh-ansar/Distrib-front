@@ -405,7 +405,8 @@ export const useDistributionStore = defineStore('distribution', {
     arriveStop(routeId:string,stopId:string){
       this.require('routes:edit')
       const route=this.visibleRoutes.find(r=>r.id===routeId)
-      invariant(route?.status==='active','Прибытие можно отметить только в рейсе «В пути».')
+      invariant(route,'Рейс недоступен.')
+      invariant(route.status==='active','Прибытие можно отметить только в рейсе «В пути».')
       const stop=route.stops.find(s=>s.id===stopId)
       invariant(stop?.status==='pending','Точка уже обработана или недоступна.')
       invariant(!stop.arrivedAt,'Прибытие уже отмечено.')
