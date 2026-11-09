@@ -32,8 +32,8 @@ function navigateSearch(){
   <div class="app-frame">
     <div v-if="mobileOpen" class="sidebar-scrim" @click="mobileOpen=false" />
     <aside class="sidebar" :class="{'sidebar-open':mobileOpen}">
-      <router-link to="/" class="brand" aria-label="Darmen UI — главная">
-        <span class="brand-text"><strong>Darmen UI</strong><small>Управление дистрибуцией</small></span>
+      <router-link to="/" class="brand" aria-label="Darmen New Wave — главная">
+        <span class="brand-text"><strong>Darmen New Wave</strong><small>Управление дистрибуцией</small></span>
       </router-link>
       <nav class="main-nav" aria-label="Разделы системы">
         <template v-for="group in ['main','operations','admin']" :key="group">
@@ -54,7 +54,7 @@ function navigateSearch(){
       <header class="topbar">
         <div class="topbar-left">
           <button class="icon-button mobile-menu" type="button" aria-label="Открыть меню" @click="mobileOpen=true"><AppIcon name="menu" /></button>
-          <span class="mobile-brand-name">Darmen UI</span>
+          <span class="mobile-brand-name">Darmen New Wave</span>
           <span class="topbar-breadcrumb"><strong>{{pageTitle}}</strong></span>
         </div>
         <div class="topbar-right">
@@ -85,7 +85,7 @@ function navigateSearch(){
       </form>
       <div class="environment-note">Демо · вымышленные данные · 1С не подключена</div>
       <main class="content"><RouterView /></main>
-      <footer class="app-footer"><span>Darmen UI</span><span>Демонстрационная версия</span></footer>
+      <footer class="app-footer"><span>Darmen New Wave</span><span>Демонстрационная версия</span></footer>
     </div>
     <nav v-if="mobileItems.length" class="mobile-bottom-nav" aria-label="Быстрые разделы" :style="{gridTemplateColumns:'repeat('+mobileItems.length+',minmax(0,1fr))'}">
       <router-link v-for="item in mobileItems" :key="item.section" :to="item.path" :aria-current="route.meta.section===item.section?'page':undefined"

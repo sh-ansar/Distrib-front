@@ -10,17 +10,39 @@ import StatusBadge from '@/components/ui/StatusBadge.vue'
 import { can } from '@/access'
 import { useDistributionStore } from '@/stores/distribution'
 import { dayOffset, displayDate, money, orderTotal, orderWeight } from '@/utils/domain'
+import { routeProgress } from '@/utils/routeProgress'
+import { matchesSearch } from '@/utils/search'
 const store=useDistributionStore()
 const router=useRouter()
 const planOpen=ref(false)
 const error=ref('')
+const routeSearch=ref('')
+const routeStatus=ref('')
+const routeDate=ref('')
 const plan=reactive({date:dayOffset(1),vehicleId:'v1',driverId:'u8',orderIds:[] as string[]})
 watch(()=>plan.date,()=>{plan.orderIds=[]})
 const availableOrders=computed(()=>store.visibleOrders.filter(o=>o.status==='ready' && o.deliveryDate===plan.date && !o.routeId))
 const selectedOrders=computed(()=>availableOrders.value.filter(o=>plan.orderIds.includes(o.id)))
 const selectedWeight=computed(()=>selectedOrders.value.reduce((s,o)=>s+orderWeight(o.items,store.data.products),0))
 const vehicle=computed(()=>store.data.vehicles.find(v=>v.id===plan.vehicleId))
-const routes=computed(()=>[...store.visibleRoutes].sort((a,b)=>b.date.localeCompare(a.date)))
+const allRoutes=computed(()=>[...store.visibleRoutes].sort((a,b)=>b.date.localeCompare(a.date)))
+function storeName(id:string){return store.data.outlets.find(o=>o.id===id)?.name||'Торговая точка'}
+function companyName(id:string){
+  const outlet=store.data.outlets.find(o=>o.id===id)
+  return store.data.customers.find(c=>c.id===outlet?.customerId)?.legalName||'Компания не найдена'
+}
+function companyCount(id:string){
+  const route=allRoutes.value.find(r=>r.id===id)
+  return new Set(route?.stops.map(s=>store.data.outlets.find(o=>o.id===s.outletId)?.customerId).filter(Boolean)).size
+}
+const routes=computed(()=>allRoutes.value.filter(r=>
+  (!routeStatus.value||r.status===routeStatus.value) && (!routeDate.value||r.date===routeDate.value) &&
+  matchesSearch(routeSearch.value,[
+    r.number,store.data.employees.find(e=>e.id===r.driverId)?.name,
+    store.data.vehicles.find(v=>v.id===r.vehicleId)?.plate,
+    ...r.stops.flatMap(s=>[storeName(s.outletId),companyName(s.outletId),store.data.outlets.find(o=>o.id===s.outletId)?.address]),
+  ])
+))
 function createRoute(){
   error.value=''
   try{const r=store.planRoute({...plan});planOpen.value=false;store.notify('Рейс '+r.number+' создан (демо).');router.push('/routes/'+r.id)}
@@ -32,22 +54,40 @@ function createRoute(){
     <button v-if="can(store.currentRole,'routes:edit')" type="button" class="btn btn-primary" @click="planOpen=true"><AppIcon name="plus" :size="18" /> Сформировать рейс</button>
   </PageTitle>
   <div class="mini-stats">
-    <div><strong>{{routes.length}}</strong><span>Рейсов всего</span></div>
-    <div><strong>{{routes.filter(r=>r.status==='active').length}}</strong><span>В пути</span></div>
-    <div><strong>{{routes.reduce((s,r)=>s+r.stops.filter(p=>p.status==='pending').length,0)}}</strong><span>Точек к доставке</span></div>
+    <div><strong>{{allRoutes.length}}</strong><span>Рейсов всего</span></div>
+    <div><strong>{{allRoutes.filter(r=>r.status==='active').length}}</strong><span>В пути</span></div>
+    <div><strong>{{allRoutes.reduce((sum,r)=>sum+routeProgress(r).pending,0)}}</strong><span>Точек к доставке</span></div>
     <div><strong>{{store.data.vehicles.length}}</strong><span>Автомобилей</span></div>
   </div>
-  <SectionCard title="Журнал рейсов" description="Каждая остановка связана с одной или несколькими заявками">
-    <div v-if="routes.length" class="route-card-grid">
-      <router-link v-for="route in routes" :key="route.id" :to="'/routes/'+route.id" class="route-card">
-        <div class="route-card-top"><span class="route-card-icon"><AppIcon name="truck" :size="22" /></span><StatusBadge :status="route.status" /></div>
-        <h3>{{route.number}}</h3><p>{{displayDate(route.date)}}</p>
-        <div class="route-card-meta"><span><AppIcon name="user-round" :size="16" /> {{store.data.employees.find(e=>e.id===route.driverId)?.name}}</span><span><AppIcon name="truck" :size="16" /> {{store.data.vehicles.find(v=>v.id===route.vehicleId)?.plate}}</span></div>
-        <div class="route-progress"><span :style="{width:route.stops.length?100*route.stops.filter(s=>s.status!=='pending').length/route.stops.length+'%':'0%'}" /></div>
-        <div class="route-card-bottom"><strong>{{route.stops.filter(s=>s.status!=='pending').length}} / {{route.stops.length}} точек</strong><span>Открыть рейс <AppIcon name="arrow-right" :size="16" /></span></div>
+  <SectionCard title="Контроль рейсов" description="Статусы, очередность точек, водитель и последняя подтверждённая доставка">
+    <div class="route-filter-bar">
+      <label class="field"><span>Поиск</span><input v-model="routeSearch" aria-label="Поиск рейсов" placeholder="Рейс, водитель, компания, магазин..." /></label>
+      <label class="field"><span>Дата</span><input v-model="routeDate" type="date" aria-label="Дата рейса" /></label>
+      <label class="field"><span>Статус</span><select v-model="routeStatus" aria-label="Статус рейса"><option value="">Все статусы</option><option value="planned">Запланирован</option><option value="loading">Загрузка</option><option value="active">В пути</option><option value="completed">Завершён</option></select></label>
+    </div>
+    <div v-if="routes.length" class="route-monitor-list">
+      <router-link v-for="r in routes" :key="r.id" :to="'/routes/'+r.id" class="route-monitor-card">
+        <div class="route-monitor-top">
+          <div><strong>{{r.number}}</strong><small>{{displayDate(r.date)}} · {{companyCount(r.id)}} компаний · {{r.stops.length}} точек</small></div>
+          <StatusBadge :status="r.status" />
+        </div>
+        <div class="route-monitor-meta">
+          <div><span>Водитель</span><strong>{{store.data.employees.find(e=>e.id===r.driverId)?.name||'—'}}</strong></div>
+          <div><span>Машина</span><strong>{{store.data.vehicles.find(v=>v.id===r.vehicleId)?.plate||'—'}}</strong></div>
+          <div><span>Выполнено</span><strong>{{routeProgress(r).completed}} / {{routeProgress(r).total}}</strong></div>
+          <div v-if="routeProgress(r).problems"><span>Проблемы</span><strong class="text-danger">{{routeProgress(r).problems}}</strong></div>
+        </div>
+        <div class="route-progress"><span :style="{width:routeProgress(r).percent+'%'}" /></div>
+        <div class="route-monitor-events">
+          <p v-if="routeProgress(r).last"><span>Последняя отметка</span><strong>{{storeName(routeProgress(r).last!.outletId)}}</strong></p>
+          <p v-if="routeProgress(r).next"><span>Следующая точка</span><strong>{{storeName(routeProgress(r).next!.outletId)}}</strong><small>{{companyName(routeProgress(r).next!.outletId)}}</small></p>
+          <p v-if="!routeProgress(r).last"><span>Доставка</span><strong>Подтверждений ещё нет</strong></p>
+          <span class="route-monitor-link">Маршрутный лист →</span>
+        </div>
       </router-link>
     </div>
-    <EmptyState v-else icon="truck" title="Рейсов пока нет" description="Добавьте готовые к отгрузке заявки и сформируйте первый маршрут." />
+    <EmptyState v-else icon="truck" title="Рейсы не найдены" description="Измените фильтры или создайте маршрут из готовых заявок." />
+    <p class="route-disclaimer">Позиция машины и ETA пока недоступны: отображаются только подтверждённые водителем остановки, без GPS.</p>
   </SectionCard>
   <SectionCard title="Принцип вечернего планирования" description="Сначала доступный и контролируемый процесс, затем оптимизация">
     <div class="steps-grid">
@@ -68,7 +108,7 @@ function createRoute(){
       <div v-if="availableOrders.length" class="check-list">
         <label v-for="order in availableOrders" :key="order.id" class="check-row">
           <input v-model="plan.orderIds" type="checkbox" :value="order.id" />
-          <span class="check-row-text"><strong>{{store.data.outlets.find(o=>o.id===order.outletId)?.name}}</strong><small>{{order.number}} · {{money(orderTotal(order))}}</small></span>
+          <span class="check-row-text"><strong>{{store.data.outlets.find(o=>o.id===order.outletId)?.name}}</strong><small>{{companyName(order.outletId)}} · {{order.number}} · {{money(orderTotal(order))}}</small><small>Приёмка: {{store.data.outlets.find(o=>o.id===order.outletId)?.receivingWindow||'Уточнить'}}</small></span>
           <strong>{{orderWeight(order.items,store.data.products).toFixed(0)}} кг</strong>
         </label>
       </div>

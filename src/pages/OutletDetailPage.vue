@@ -11,12 +11,14 @@ import StatusBadge from '@/components/ui/StatusBadge.vue'
 import { can } from '@/access'
 import { useDistributionStore } from '@/stores/distribution'
 import { consignmentBalance, debtBalance, displayDate, isOverdue, money, orderTotal, phoneLink } from '@/utils/domain'
+import { routeProgress } from '@/utils/routeProgress'
 const store=useDistributionStore()
 const route=useRoute()
 const outlet=computed(()=>store.visibleOutlets.find(o=>o.id===String(route.params.id)))
 const customer=computed(()=>store.data.customers.find(c=>c.id===outlet.value?.customerId))
 const debts=computed(()=>store.visibleDebts.filter(d=>d.customerId===outlet.value?.customerId))
 const orders=computed(()=>store.visibleOrders.filter(o=>o.outletId===outlet.value?.id).sort((a,b)=>b.createdAt.localeCompare(a.createdAt)))
+const relatedRoutes=computed(()=>store.visibleRoutes.filter(r=>r.stops.some(s=>s.outletId===outlet.value?.id)).sort((a,b)=>b.date.localeCompare(a.date)))
 const visits=computed(()=>store.visibleVisits.filter(v=>v.outletId===outlet.value?.id).sort((a,b)=>b.plannedDate.localeCompare(a.plannedDate)))
 const consignments=computed(()=>store.data.consignments.filter(c=>c.outletId===outlet.value?.id))
 const docs=computed(()=>store.data.documents.filter(d=>(d.entityType==='outlet'&&d.entityId===outlet.value?.id)||(d.entityType==='customer'&&d.entityId===customer.value?.id)))
@@ -30,8 +32,8 @@ const documentOpen=ref(false)
 const note=ref('')
 const error=ref('')
 const docName=ref('')
-const edit=reactive({name:'',address:'',contactName:'',phone:'',notes:''})
-watch(outlet,o=>{if(o)Object.assign(edit,{name:o.name,address:o.address,contactName:o.contactName,phone:o.phone,notes:o.notes})},{immediate:true})
+const edit=reactive({name:'',address:'',contactName:'',phone:'',notes:'',receivingWindow:'',accessInstructions:''})
+watch(outlet,o=>{if(o)Object.assign(edit,{name:o.name,address:o.address,contactName:o.contactName,phone:o.phone,notes:o.notes,receivingWindow:o.receivingWindow||'',accessInstructions:o.accessInstructions||''})},{immediate:true})
 function update(){
   error.value=''
   try {if(outlet.value){store.updateOutlet(outlet.value.id,{...edit});editOpen.value=false;store.notify('Данные магазина обновлены.')}}catch(e){error.value=e instanceof Error?e.message:'Ошибка сохранения.'}
@@ -60,7 +62,7 @@ function addDoc(){
       <div class="detail-stat"><span>Контакт</span><strong>{{outlet.contactName||'—'}}</strong><a v-if="outlet.phone" :href="phoneLink(outlet.phone)">{{outlet.phone}}</a><small v-else>Телефон не указан</small></div>
     </div>
     <div class="tab-bar" role="tablist" aria-label="Разделы карточки">
-      <button v-for="tab in [{id:'overview',label:'Обзор'},{id:'orders',label:'Заявки'},{id:'visits',label:'Визиты'},{id:'debts',label:'Дебиторка'},{id:'consignment',label:'Под реализацию'},{id:'documents',label:'Документы'},{id:'history',label:'История'}].filter(t=>t.id!=='debts'&&t.id!=='consignment'&&t.id!=='visits'||can(store.currentRole,t.id==='debts'?'debts':t.id==='visits'?'visits':'consignment'))"
+      <button v-for="tab in [{id:'overview',label:'Обзор'},{id:'orders',label:'Заявки'},{id:'routes',label:'Рейсы'},{id:'visits',label:'Визиты'},{id:'debts',label:'Дебиторка'},{id:'consignment',label:'Под реализацию'},{id:'documents',label:'Документы'},{id:'history',label:'История'}].filter(t=>t.id!=='debts'&&t.id!=='consignment'&&t.id!=='visits'&&t.id!=='routes'||can(store.currentRole,t.id==='debts'?'debts':t.id==='visits'?'visits':t.id==='routes'?'routes':'consignment'))"
         :key="tab.id" type="button" role="tab" :aria-selected="activeTab===tab.id" :class="{'selected':activeTab===tab.id}" @click="activeTab=tab.id">{{tab.label}}</button>
     </div>
     <div v-if="activeTab==='overview'" class="two-col-layout">
@@ -69,10 +71,12 @@ function addDoc(){
           <div><dt>Адрес</dt><dd>{{outlet.address}}</dd></div>
           <div><dt>Район</dt><dd>{{outlet.district}}</dd></div>
           <div><dt>Ответственный</dt><dd>{{store.data.employees.find(e=>e.id===outlet?.repId)?.name}}</dd></div>
-          <div><dt>Юридическое лицо</dt><dd>{{customer?.legalName}}</dd></div>
+          <div><dt>Юридическое лицо</dt><dd><router-link v-if="can(store.currentRole,'companies')" class="text-link" :to="'/companies/'+customer?.id">{{customer?.legalName}}</router-link><span v-else>{{customer?.legalName}}</span></dd></div>
           <div><dt>Кредитный лимит</dt><dd>{{money(customer?.creditLimit||0)}}</dd></div>
           <div><dt>Отсрочка платежа</dt><dd>{{customer?.termsDays}} дней</dd></div>
           <div><dt>Статус</dt><dd><StatusBadge :status="customer?.status||'active'" :label="customer?.status==='active'?'Активен':'Приостановлен'" /></dd></div>
+          <div><dt>Окно приёмки</dt><dd>{{outlet.receivingWindow||customer?.profile?.receivingWindow||'Не указано'}}</dd></div>
+          <div><dt>Инструкции водителю</dt><dd>{{outlet.accessInstructions||customer?.profile?.deliveryRequirements||'Нет инструкций'}}</dd></div>
           <div><dt>Примечание</dt><dd>{{outlet.notes||'Пока нет примечаний'}}</dd></div>
         </dl>
       </SectionCard>
@@ -82,6 +86,15 @@ function addDoc(){
         <form v-if="can(store.currentRole,'outlets:edit')" class="note-form" @submit.prevent="addNote"><label class="field"><span>Новая запись в истории</span><textarea v-model="note" rows="3" placeholder="Итог визита, договорённости, комментарий..." /></label><div v-if="error" class="form-error">{{error}}</div><button class="btn btn-secondary" type="submit"><AppIcon name="plus" :size="16" /> Добавить запись</button></form>
       </SectionCard>
     </div>
+    <SectionCard v-else-if="activeTab==='routes'" title="Доставки и рейсы" description="Отметки по маршрутам, а не геолокация автомобиля">
+      <router-link v-for="r in relatedRoutes" :key="r.id" :to="'/routes/'+r.id" class="detail-item-row">
+        <div><strong>{{r.number}} · {{displayDate(r.date)}}</strong><small>Водитель: {{store.data.employees.find(e=>e.id===r.driverId)?.name||'—'}} · {{store.data.vehicles.find(v=>v.id===r.vehicleId)?.plate||'—'}}</small>
+          <small>Отмечено {{routeProgress(r).completed}} из {{routeProgress(r).total}} точек · {{routeProgress(r).next?'Следующая: '+store.data.outlets.find(o=>o.id===routeProgress(r).next?.outletId)?.name:'Все точки обработаны'}}</small>
+        </div><StatusBadge :status="r.status" />
+      </router-link>
+      <EmptyState v-if="!relatedRoutes.length" title="Рейсы пока не назначены" />
+      <p class="directory-footnote">Живое местоположение водителя не доступно без отдельного GPS-трекера.</p>
+    </SectionCard>
     <SectionCard v-else-if="activeTab==='orders'" title="Заявки магазина" description="От создания до подтверждённой доставки">
       <EmptyState v-if="!orders.length" title="Заявок нет" />
       <router-link v-for="order in orders" :key="order.id" to="/orders" class="detail-item-row"><div><strong>{{order.number}}</strong><small>Доставка {{displayDate(order.deliveryDate)}} · {{order.items.length}} позиций</small></div><strong>{{money(orderTotal(order))}}</strong><StatusBadge :status="order.status" /><AppIcon name="chevron-right" :size="17" /></router-link>
@@ -113,7 +126,7 @@ function addDoc(){
     </SectionCard>
     <ModalShell :open="orderOpen" title="Новая заявка" subtitle="Добавьте товары и дату доставки" size="lg" @close="orderOpen=false"><OrderForm :initial-outlet-id="outlet.id" @created="orderOpen=false;activeTab='orders'" @cancel="orderOpen=false" /></ModalShell>
     <ModalShell :open="editOpen" title="Редактирование магазина" @close="editOpen=false"><form class="stack-lg" @submit.prevent="update">
-      <label class="field"><span>Название</span><input v-model="edit.name" required /></label><label class="field"><span>Адрес</span><input v-model="edit.address" required /></label><label class="field"><span>Контакт</span><input v-model="edit.contactName" /></label><label class="field"><span>Телефон</span><input v-model="edit.phone" /></label><label class="field"><span>Примечание</span><textarea v-model="edit.notes" rows="3" /></label>
+      <label class="field"><span>Название</span><input v-model="edit.name" required /></label><label class="field"><span>Адрес</span><input v-model="edit.address" required /></label><label class="field"><span>Контакт</span><input v-model="edit.contactName" /></label><label class="field"><span>Телефон</span><input v-model="edit.phone" /></label><label class="field"><span>Окно приёмки</span><input v-model="edit.receivingWindow" placeholder="10:00–16:00" /></label><label class="field"><span>Инструкции водителю</span><textarea v-model="edit.accessInstructions" rows="3" /></label><label class="field"><span>Примечание</span><textarea v-model="edit.notes" rows="3" /></label>
       <div v-if="error" class="form-error">{{error}}</div><div class="form-footer"><button class="btn btn-secondary" type="button" @click="editOpen=false">Отмена</button><button class="btn btn-primary" type="submit">Сохранить</button></div>
     </form></ModalShell>
     <ModalShell :open="documentOpen" title="Запись о документе" subtitle="Файл не загружается в демоверсии" @close="documentOpen=false"><form class="stack-lg" @submit.prevent="addDoc"><label class="field"><span>Название документа</span><input v-model="docName" required placeholder="Накладная №..., договор..." /></label><div class="inline-notice"><AppIcon name="info" :size="18" /> Загрузка фотографий и PDF будет доступна после подключения защищённого файлового API.</div><div v-if="error" class="form-error">{{error}}</div><div class="form-footer"><button class="btn btn-secondary" type="button" @click="documentOpen=false">Отмена</button><button class="btn btn-primary" type="submit">Сохранить запись</button></div></form></ModalShell>

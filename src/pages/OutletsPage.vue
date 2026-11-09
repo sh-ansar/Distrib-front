@@ -3,6 +3,7 @@ import { computed, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppIcon from '@/components/ui/AppIcon.vue'
 import ModalShell from '@/components/ui/ModalShell.vue'
+import CompanyForm from '@/components/CompanyForm.vue'
 import PageTitle from '@/components/ui/PageTitle.vue'
 import SectionCard from '@/components/ui/SectionCard.vue'
 import StatusBadge from '@/components/ui/StatusBadge.vue'
@@ -20,9 +21,7 @@ const customerFilter=ref(String(route.query.customer??''))
 const isCreateOpen=ref(false)
 const isCustomerOpen=ref(false)
 const error=ref('')
-const customerError=ref('')
-const form=reactive({customerId:'',name:'',address:'Астана, ',district:'Есиль',contactName:'',phone:'',repId:store.currentRole==='sales'?store.currentUserId:'u4',notes:''})
-const customerForm=reactive({legalName:'',bin:'',contactName:'',phone:'',email:'',creditLimit:500000,termsDays:14})
+const form=reactive({customerId:'',name:'',address:'Астана, ',district:'Есиль',contactName:'',phone:'',repId:store.currentRole==='sales'?store.currentUserId:'u4',notes:'',receivingWindow:'',accessInstructions:''})
 watch(()=>route.query.q,q=>search.value=String(q??''))
 watch(()=>route.query.customer,q=>customerFilter.value=String(q??''))
 const districts=computed(()=>[...new Set(store.data.outlets.map(o=>o.district))].sort())
@@ -46,10 +45,10 @@ function createOutlet(){
   try{const outlet=store.createOutlet({...form});isCreateOpen.value=false;router.push('/outlets/'+outlet.id);store.notify('Новая торговая точка добавлена.')}
   catch(e){error.value=e instanceof Error?e.message:'Не удалось создать торговую точку.'}
 }
-function createCustomer(){
-  customerError.value=''
-  try{const customer=store.createCustomer({...customerForm});form.customerId=customer.id;isCustomerOpen.value=false;store.notify('Контрагент создан. Добавьте его торговую точку.')}
-  catch(e){customerError.value=e instanceof Error?e.message:'Не удалось создать контрагента.'}
+function onCompanyCreated(id:string){
+  form.customerId=id
+  isCustomerOpen.value=false
+  store.notify('Компания создана. Теперь добавьте её магазин.')
 }
 </script>
 <template>
@@ -79,32 +78,22 @@ function createCustomer(){
     <form class="stack-lg" @submit.prevent="createOutlet">
       <div class="form-grid">
         <label class="field field-wide"><span>Контрагент *</span><select v-model="form.customerId" required><option value="">Выберите компанию</option><option v-for="customer in store.visibleCustomers" :key="customer.id" :value="customer.id">{{customer.legalName}}</option></select></label>
-        <div class="field-inline field-wide" v-if="can(store.currentRole,'outlets:edit')"><span class="muted small">Нет нужной компании?</span><button class="text-link" type="button" @click="isCustomerOpen=true">Создать контрагента <AppIcon name="plus" :size="15" /></button></div>
+        <div class="field-inline field-wide" v-if="can(store.currentRole,'companies:edit')"><span class="muted small">Нет нужной компании?</span><button class="text-link" type="button" @click="isCustomerOpen=true">Создать контрагента <AppIcon name="plus" :size="15" /></button></div>
         <label class="field"><span>Название магазина *</span><input v-model="form.name" required placeholder="Маркет «Арман»" /></label>
         <label class="field"><span>Район *</span><select v-model="form.district" required><option v-for="d in ['Есиль','Нура','Сарыарка','Алматы','Байконыр']" :key="d">{{d}}</option></select></label>
         <label class="field field-wide"><span>Адрес доставки *</span><input v-model="form.address" required /></label>
         <label class="field"><span>Контактное лицо</span><input v-model="form.contactName" placeholder="Имя контактного лица" /></label>
         <label class="field"><span>Телефон</span><input v-model="form.phone" placeholder="+7 7XX XXX XX XX" /></label>
         <label class="field field-wide"><span>Торговый представитель *</span><select v-model="form.repId" :disabled="store.currentRole==='sales'"><option v-for="employee in store.data.employees.filter(e=>e.role==='sales'&&e.active)" :key="employee.id" :value="employee.id">{{employee.name}}</option></select></label>
+        <label class="field"><span>Время приёмки</span><input v-model="form.receivingWindow" placeholder="10:00–16:00" /></label>
+        <label class="field field-wide"><span>Инструкции для водителя</span><textarea v-model="form.accessInstructions" rows="2" placeholder="Вход, разгрузка, телефон для связи..." /></label>
         <label class="field field-wide"><span>Примечание</span><textarea v-model="form.notes" rows="2" placeholder="Особенности точки, время приёмки..." /></label>
       </div>
       <div v-if="error" class="form-error" role="alert">{{error}}</div>
       <div class="form-footer"><button type="button" class="btn btn-secondary" @click="isCreateOpen=false">Отмена</button><button type="submit" class="btn btn-primary">Сохранить магазин</button></div>
     </form>
   </ModalShell>
-  <ModalShell :open="isCustomerOpen" title="Новый контрагент" subtitle="Юридическая компания, у которой может быть несколько магазинов" @close="isCustomerOpen=false">
-    <form class="stack-lg" @submit.prevent="createCustomer">
-      <div class="form-grid">
-        <label class="field field-wide"><span>Юридическое название *</span><input v-model="customerForm.legalName" required /></label>
-        <label class="field"><span>БИН (12 цифр) *</span><input v-model="customerForm.bin" inputmode="numeric" maxlength="12" required /></label>
-        <label class="field"><span>Контактное лицо</span><input v-model="customerForm.contactName" /></label>
-        <label class="field"><span>Телефон</span><input v-model="customerForm.phone" /></label>
-        <label class="field"><span>E-mail</span><input v-model="customerForm.email" type="email" /></label>
-        <label class="field"><span>Кредитный лимит, ₸</span><input v-model.number="customerForm.creditLimit" min="0" type="number" /></label>
-        <label class="field"><span>Отсрочка, дней</span><input v-model.number="customerForm.termsDays" min="0" type="number" /></label>
-      </div>
-      <div v-if="customerError" class="form-error" role="alert">{{customerError}}</div>
-      <div class="form-footer"><button type="button" class="btn btn-secondary" @click="isCustomerOpen=false">Отмена</button><button type="submit" class="btn btn-primary">Создать компанию</button></div>
-    </form>
+  <ModalShell :open="isCustomerOpen" title="Новый контрагент" subtitle="Юридическое лицо, у которого может быть несколько магазинов" size="lg" @close="isCustomerOpen=false">
+    <CompanyForm @saved="onCompanyCreated" @cancel="isCustomerOpen=false" />
   </ModalShell>
 </template>

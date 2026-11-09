@@ -582,3 +582,93 @@ body{overflow-x:clip;background:#f7f8fa}
 .inline-notice>svg{display:none}
 .inline-notice strong{color:#4a6170}
 @media(max-width:790px){.inline-notice{font-size:10.5px;line-height:1.65}.metric-hint{overflow-wrap:anywhere}}
+
+/* Darmen New Wave — operational dossiers and clear dispatch monitoring */
+.brand-text strong{font-size:19px;line-height:1.23;letter-spacing:-.45px}
+.mobile-brand-name{font-size:15.5px;letter-spacing:-.3px}
+.company-editor{display:flex;flex-direction:column;gap:19px;min-width:0}
+.form-fieldset{margin:0;padding:18px;border:1px solid var(--line);border-radius:10px;min-width:0}
+.form-fieldset legend{padding:0 7px;color:#304a58;font-size:12px;font-weight:750}
+.company-editor-finance{margin:0;color:#7b8b98;font-size:11px;line-height:1.7}
+.company-editor-finance strong{color:#475e6d}
+.company-route-row{display:flex;flex-direction:column;gap:10px;padding:18px 0;border-bottom:1px solid var(--line);min-width:0}
+.company-route-row:first-child{padding-top:0}
+.company-route-row:last-child{border-bottom:0}
+.company-route-top{display:flex;align-items:start;justify-content:space-between;gap:12px}
+.company-route-top>div{display:flex;flex-direction:column;gap:6px;min-width:0}
+.company-route-top strong{font-size:12px;color:#2c4251}
+.company-route-top small{font-size:10px;color:#7c8c97}
+.company-route-row .route-progress{margin:2px 0}
+.company-route-progress{display:flex;align-items:center;justify-content:space-between;gap:10px;color:#81909b;font-size:10px}
+.company-route-event{margin:0;line-height:1.6;font-size:11px;color:#526b78;overflow-wrap:anywhere}
+.company-route-row .text-link{align-self:flex-start}
+.route-filter-bar{display:grid;grid-template-columns:minmax(0,2fr) minmax(130px,1fr) minmax(140px,1fr);gap:12px;padding:0 0 19px;align-items:end}
+.route-filter-bar .field{min-width:0}
+.route-filter-bar input,.route-filter-bar select{min-width:0;max-width:100%}
+.route-monitor-list{display:flex;flex-direction:column;gap:13px}
+.route-monitor-card{display:block;padding:19px;border:1px solid #e2e8eb;border-radius:10px;min-width:0;transition:border-color .15s ease,background .15s ease}
+.route-monitor-card:hover{border-color:#9ccbbb;background:#fcfdfd}
+.route-monitor-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.route-monitor-top>div{display:flex;flex-direction:column;gap:6px;min-width:0}
+.route-monitor-top strong{font-size:15px;color:#213d4e}
+.route-monitor-top small{font-size:10.5px;color:#8596a2}
+.route-monitor-meta{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:13px;margin:16px 0}
+.route-monitor-meta>div{display:flex;flex-direction:column;gap:6px;min-width:0}
+.route-monitor-meta span,.route-monitor-events p span{font-size:10px;color:#91a0aa}
+.route-monitor-meta strong{font-size:11px;color:#354e5e;overflow-wrap:anywhere}
+.route-monitor-card .route-progress{margin:0 0 12px}
+.route-monitor-events{display:grid;grid-template-columns:repeat(2,minmax(0,1fr)) auto;align-items:center;gap:13px}
+.route-monitor-events p{display:flex;flex-direction:column;gap:5px;min-width:0;margin:0;overflow-wrap:anywhere}
+.route-monitor-events p strong{font-size:11px;color:#334958;overflow-wrap:anywhere}
+.route-monitor-events p small{font-size:10px;color:#91a0aa}
+.route-monitor-link{justify-self:end;white-space:nowrap;color:#19816f;font-size:11px;font-weight:650}
+.route-disclaimer{margin:13px 0 0;line-height:1.7;font-size:10px;color:#8796a3}
+.route-live-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0;margin:0 0 17px;background:white;border:1px solid var(--line);border-radius:11px}
+.route-live-summary>div{padding:16px;display:flex;flex-direction:column;gap:7px;border-right:1px solid var(--line);min-width:0}
+.route-live-summary>div:last-child{border-right:0}
+.route-live-summary span{font-size:10px;color:#8b9ba6}
+.route-live-summary strong{font-size:12px;line-height:1.5;color:#304659;overflow-wrap:anywhere}
+.route-live-summary small{font-size:10px;color:#7e8e9a}
+.route-live-summary+.route-disclaimer{margin:0 0 18px}
+.stop-company-name{font-size:10.5px;color:#6e8591;overflow-wrap:anywhere}
+.stop-delivery-info{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 12px;width:100%;border-top:1px solid #f0f2f4;padding-top:11px}
+.stop-delivery-info>div{display:flex;flex-direction:column;gap:5px;min-width:0;overflow-wrap:anywhere}
+.stop-delivery-info>div span{font-size:10px;color:#94a2ad}
+.stop-delivery-info>div strong{font-size:11px;color:#334d5e}
+.stop-delivery-info>div a{font-size:10.5px}
+.stop-instructions{margin:0;padding:10px 12px;background:#f8faf9;border-radius:7px;line-height:1.7;color:#657784;font-size:10.5px}
+.stop-event-time{font-size:10px;color:#81919e}
+@media(max-width:1100px){
+.route-monitor-events{grid-template-columns:repeat(2,minmax(0,1fr))}
+.route-monitor-link{justify-self:start}
+}
+@media(max-width:790px){
+.brand-text strong{font-size:19px}
+.mobile-brand-name{font-size:14.5px}
+.form-fieldset{padding:14px 12px}
+.company-editor{gap:16px}
+.company-route-row{gap:9px}
+.route-filter-bar{grid-template-columns:minmax(0,1fr);gap:10px;padding-bottom:15px}
+.route-monitor-card{padding:14px}
+.route-monitor-meta{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.route-monitor-events{grid-template-columns:minmax(0,1fr);gap:10px}
+.route-monitor-link{justify-self:start}
+.route-live-summary{grid-template-columns:minmax(0,1fr)}
+.route-live-summary>div{padding:13px 15px;border-right:0;border-bottom:1px solid var(--line)}
+.route-live-summary>div:last-child{border-bottom:0}
+.stop-delivery-info{grid-template-columns:repeat(2,minmax(0,1fr))}
+.stop-card{max-width:100%;min-width:0}
+.stop-content{min-width:0}
+.company-route-top{flex-wrap:wrap}
+.company-facts{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:390px){
+.company-facts{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.stop-delivery-info{grid-template-columns:minmax(0,1fr)}
+.route-monitor-meta{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.company-route-progress{flex-wrap:wrap}
+}
+@media print{
+.route-monitor-card,.route-live-summary,.stop-card,.form-fieldset{break-inside:avoid}
+.route-disclaimer{display:none}
+}

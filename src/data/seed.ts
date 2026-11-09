@@ -1,6 +1,7 @@
 import type { DistributionData, Order, OrderStatus } from '@/types/domain'
 import { dayOffset } from '@/utils/domain'
 import { generateDemoDirectory } from '@/data/demoDirectory'
+import { demoCompanyProfile } from '@/utils/company'
 
 // Entirely fictional demo data. Never replace with customer data in this file.
 export function createDemoData(): DistributionData {
@@ -61,7 +62,7 @@ export function createDemoData(): DistributionData {
       makeOrder(5,'o5','picking',1,[['p8',12],['p9',5]]),
       makeOrder(6,'o6','new',2,[['p6',14],['p10',4]]),
       makeOrder(7,'o8','confirmed',2,[['p3',9],['p11',3]]),
-      makeOrder(8,'o9','in_route',0,[['p1',20],['p7',10]]),
+      makeOrder(8,'o9','delivered',0,[['p1',20],['p7',10]]),
       makeOrder(9,'o10','in_route',0,[['p2',20],['p4',8]]),
       makeOrder(10,'o11','delivered',-1,[['p6',12],['p9',6]]),
       makeOrder(11,'o1','delivered',-2,[['p3',6],['p12',8]]),
@@ -74,16 +75,18 @@ export function createDemoData(): DistributionData {
     .filter(o=>['confirmed','picking','ready','in_route'].includes(o.status))
     .reduce((sum,o)=>sum+o.items.filter(i=>i.productId===productId).reduce((q,i)=>q+i.quantity,0),0)
   return {
-    version:3,
-    customers:[...customers.map(([id,legalName,bin,contactName,status,creditLimit])=>({
+    version:4,
+    customers:[...customers.map(([id,legalName,bin,contactName,status,creditLimit],index)=>({
       id,legalName,bin,contactName,status,creditLimit,termsDays:14,
       phone:'+7 700 000 00 '+id.slice(1).padStart(2,'0'),
-      email:'demo-'+id+'@example.invalid',createdAt:dayOffset(-150),
+      email:'demo-'+id+'@example.invalid',createdAt:dayOffset(-150),profile:demoCompanyProfile(index),
     })),...directory.customers],
-    outlets:[...outlets.map(([id,customerId,name,address,district,repId])=>({
+    outlets:[...outlets.map(([id,customerId,name,address,district,repId],index)=>({
       id,customerId,name,address:'Астана, '+address,district,contactName:'Контакт магазина',
       phone:'+7 700 000 11 '+id.slice(1).padStart(2,'0'),repId,tags:[],
       notes:'',active:true,createdAt:dayOffset(-130),
+      receivingWindow:index%2===0?'10:00–16:00':'09:00–15:00',
+      accessInstructions:'Демо: согласовать разгрузку с магазином.',
     })),...directory.outlets],
     visits:[
       {id:'vi1',outletId:'o1',repId:'u4',plannedDate:dayOffset(0),status:'planned',purpose:'Проверить ассортимент и собрать заявку',notes:''},
@@ -138,7 +141,7 @@ export function createDemoData(): DistributionData {
     routes:[{
       id:'r1',number:'Р-001',date:dayOffset(0),driverId:'u8',vehicleId:'v1',status:'active',
       stops:[
-        {id:'st1',outletId:'o9',orderIds:['ord8'],position:1,status:'pending',notes:''},
+        {id:'st1',outletId:'o9',orderIds:['ord8'],position:1,status:'delivered',notes:'Демо: получено подтверждение доставки',completedAt:now},
         {id:'st2',outletId:'o10',orderIds:['ord9'],position:2,status:'pending',notes:''},
       ],
     }],

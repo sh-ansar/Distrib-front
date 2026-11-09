@@ -8,7 +8,8 @@ import SectionCard from '@/components/ui/SectionCard.vue'
 import StatusBadge from '@/components/ui/StatusBadge.vue'
 import { can } from '@/access'
 import { useDistributionStore } from '@/stores/distribution'
-import { displayDate, money, orderTotal, orderWeight } from '@/utils/domain'
+import { displayDate, money, orderTotal, orderWeight, phoneLink } from '@/utils/domain'
+import { routeProgress } from '@/utils/routeProgress'
 import type { RouteStatus, StopStatus } from '@/types/domain'
 const store=useDistributionStore()
 const params=useRoute()
@@ -25,6 +26,7 @@ const routeOrders=computed(()=>store.data.orders.filter(o=>route.value?.stops.so
 const weight=computed(()=>routeOrders.value.reduce((s,o)=>s+orderWeight(o.items,store.data.products),0))
 const total=computed(()=>routeOrders.value.reduce((s,o)=>s+orderTotal(o),0))
 const done=computed(()=>route.value?.stops.filter(s=>s.status!=='pending').length||0)
+const progress=computed(()=>route.value?routeProgress(route.value):null)
 const nextStatus=computed<RouteStatus|null>(()=>route.value?.status==='planned'?'loading':route.value?.status==='loading'?'active':route.value?.status==='active'?'completed':null)
 const nextLabel=computed(()=>nextStatus.value==='loading'?'Начать загрузку':nextStatus.value==='active'?'Выехать в рейс':nextStatus.value==='completed'?'Завершить рейс':'')
 function move(){
@@ -38,6 +40,10 @@ function finish(){
   catch(e){error.value=e instanceof Error?e.message:'Не удалось сохранить результат'}
 }
 function printPage(){window.print()}
+function outletName(id:string){return store.data.outlets.find(o=>o.id===id)?.name||'Магазин'}
+function companyName(id:string){const o=store.data.outlets.find(o=>o.id===id);return store.data.customers.find(c=>c.id===o?.customerId)?.legalName||'Контрагент'}
+function eventTime(value?:string){return value?new Date(value).toLocaleString('ru-RU',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'Ещё нет подтверждения'}
+function orderFor(id:string){return store.data.orders.find(o=>o.id===id)}
 </script>
 <template>
   <div v-if="!route"><PageTitle title="Рейс не найден" subtitle="Маршрут отсутствует или недоступен вашему пользователю." /><router-link class="btn btn-secondary" to="/routes"><AppIcon name="arrow-left" /> Все рейсы</router-link></div>
@@ -56,6 +62,12 @@ function printPage(){window.print()}
       <div><span>Сумма заказов</span><strong>{{money(total)}}</strong></div>
     </div>
     <div class="route-progress route-progress-wide"><span :style="{width:route.stops.length?done/route.stops.length*100+'%':'0%'}" /></div>
+    <section class="route-live-summary">
+      <div><span>Последняя подтверждённая остановка</span><strong>{{progress?.last?outletName(progress.last.outletId):'Ещё нет отметок'}}</strong><small v-if="progress?.lastEventAt">{{eventTime(progress.lastEventAt)}}</small></div>
+      <div><span>Следующая по маршрутному листу</span><strong>{{progress?.next?outletName(progress.next.outletId):'Все точки обработаны'}}</strong><small v-if="progress?.next">{{companyName(progress.next.outletId)}}</small></div>
+      <div><span>Проблемные поставки</span><strong :class="{'text-danger':(progress?.problems||0)>0}">{{progress?.problems||0}}</strong><small>Требуют сверки, если есть</small></div>
+    </section>
+    <p class="route-disclaimer">Контроль по отметкам водителя. Живое местоположение автомобиля и ETA недоступны: GPS пока не подключён.</p>
     <div class="two-col-layout route-detail-grid">
       <SectionCard title="Маршрутный лист" :description="route.stops.length+' торговых точек по порядку'">
         <div class="stop-list">
@@ -63,8 +75,17 @@ function printPage(){window.print()}
             <span class="stop-number" :class="{'stop-done':stop.status==='delivered'}">{{stop.position}}</span>
             <div class="stop-content">
               <div class="stop-head"><h3>{{store.data.outlets.find(o=>o.id===stop.outletId)?.name}}</h3><StatusBadge :status="stop.status" /></div>
+              <router-link v-if="can(store.currentRole,'companies')" class="text-link stop-company-name" :to="'/companies/'+store.data.outlets.find(o=>o.id===stop.outletId)?.customerId">{{companyName(stop.outletId)}}</router-link>
+              <span v-else class="stop-company-name">{{companyName(stop.outletId)}}</span>
               <div class="stop-address"><AppIcon name="map-pin" :size="15" /> {{store.data.outlets.find(o=>o.id===stop.outletId)?.address}}</div>
-              <div class="stop-order-list"><span v-for="id in stop.orderIds" :key="id" class="stop-order">{{store.data.orders.find(o=>o.id===id)?.number}}</span></div>
+              <div class="stop-delivery-info">
+                <div><span>Приёмка</span><strong>{{store.data.outlets.find(o=>o.id===stop.outletId)?.receivingWindow||store.data.customers.find(c=>c.id===store.data.outlets.find(o=>o.id===stop.outletId)?.customerId)?.profile?.receivingWindow||'Уточнить'}}</strong></div>
+                <div><span>Контакт</span><strong>{{store.data.outlets.find(o=>o.id===stop.outletId)?.contactName||'Уточнить'}}</strong></div>
+                <div><span>Телефон</span><a v-if="store.data.outlets.find(o=>o.id===stop.outletId)?.phone" class="text-link" :href="phoneLink(store.data.outlets.find(o=>o.id===stop.outletId)?.phone||'')">{{store.data.outlets.find(o=>o.id===stop.outletId)?.phone}}</a><span v-else>—</span></div>
+              </div>
+              <p v-if="store.data.outlets.find(o=>o.id===stop.outletId)?.accessInstructions" class="stop-instructions">{{store.data.outlets.find(o=>o.id===stop.outletId)?.accessInstructions}}</p>
+              <div class="stop-order-list"><span v-for="id in stop.orderIds" :key="id" class="stop-order">{{orderFor(id)?.number}} · {{money(orderTotal(orderFor(id)||{items:[]}))}}</span></div>
+              <small v-if="stop.completedAt" class="stop-event-time">Отметка: {{eventTime(stop.completedAt)}}</small>
               <p v-if="stop.notes" class="stop-notes">{{stop.notes}}</p>
               <button v-if="route.status==='active'&&stop.status==='pending'&&can(store.currentRole,'routes:edit')" class="btn btn-secondary btn-sm no-print" type="button" @click="openStop(stop.id)"><AppIcon name="clipboard-check" :size="16" /> Отметить доставку</button>
             </div>

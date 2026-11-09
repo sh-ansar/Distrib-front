@@ -5,6 +5,31 @@ export type StopStatus = 'pending' | 'delivered' | 'partial' | 'failed'
 export type EntityType = 'customer' | 'outlet' | 'order' | 'route' | 'stop'
 export type CustomerStatus = 'active' | 'on_hold'
 
+export type VatStatus = 'unknown' | 'vat' | 'no_vat'
+export type PaymentMethod = 'bank' | 'cash' | 'mixed'
+/** Operational company dossier. Finance fields in Customer remain read-only until verified against 1C. */
+export interface CustomerProfile {
+  tradingName: string
+  category: string
+  directorName: string
+  contactPosition: string
+  whatsapp: string
+  website: string
+  legalAddress: string
+  actualAddress: string
+  vatStatus: VatStatus
+  contractNumber: string
+  contractDate: string
+  paymentMethod: PaymentMethod
+  territory: string
+  workingHours: string
+  deliveryDays: string
+  receivingWindow: string
+  deliveryRequirements: string
+  notes: string
+  updatedAt?: string
+}
+
 export interface Customer {
   id: string
   legalName: string
@@ -16,6 +41,7 @@ export interface Customer {
   creditLimit: number
   status: CustomerStatus
   createdAt: string
+  profile?: CustomerProfile
 }
 export interface Outlet {
   id: string
@@ -30,6 +56,8 @@ export interface Outlet {
   notes: string
   active: boolean
   createdAt: string
+  receivingWindow?: string
+  accessInstructions?: string
 }
 export interface Product {
   id: string

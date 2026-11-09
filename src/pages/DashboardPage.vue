@@ -9,6 +9,7 @@ import StatusBadge from '@/components/ui/StatusBadge.vue'
 import { can } from '@/access'
 import { useDistributionStore } from '@/stores/distribution'
 import { dayOffset, debtBalance, displayDate, isOverdue, money, orderTotal, qty } from '@/utils/domain'
+import { routeProgress } from '@/utils/routeProgress'
 const store=useDistributionStore()
 const outstanding=computed(()=>store.visibleDebts.reduce((sum,d)=>sum+debtBalance(d),0))
 const overdue=computed(()=>store.visibleDebts.filter(d=>isOverdue(d)).reduce((sum,d)=>sum+debtBalance(d),0))
@@ -96,7 +97,7 @@ const todayLabel=computed(()=>new Intl.DateTimeFormat('ru-RU',{day:'numeric',mon
       </SectionCard>
       <SectionCard title="Доставка сегодня" description="Рейсы и обработка точек" v-if="can(store.currentRole,'routes')">
         <RouterLink v-for="r in routesToday" :key="r.id" class="route-overview-row" :to="'/routes/'+r.id">
-          <div class="route-icon"><AppIcon name="truck" /></div><div class="list-row-content"><strong>{{r.number}}</strong><span>{{r.stops.filter(s=>s.status!=='pending').length}} из {{r.stops.length}} точек</span></div>
+          <div class="route-icon"><AppIcon name="truck" /></div><div class="list-row-content"><strong>{{r.number}}</strong><span>{{routeProgress(r).completed}} из {{routeProgress(r).total}} точек · {{store.data.employees.find(e=>e.id===r.driverId)?.name||'Водитель не назначен'}}</span><span v-if="routeProgress(r).next">Следующая: {{store.data.outlets.find(o=>o.id===routeProgress(r).next?.outletId)?.name||'Торговая точка'}}</span><span v-else>Все остановки обработаны</span></div>
           <StatusBadge :status="r.status" />
         </RouterLink>
         <div v-if="!routesToday.length" class="muted small">На сегодня рейсов нет.</div>
