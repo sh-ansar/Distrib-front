@@ -2,6 +2,7 @@ import type { DistributionData, Order, OrderStatus } from '@/types/domain'
 import { dayOffset } from '@/utils/domain'
 import { generateDemoDirectory } from '@/data/demoDirectory'
 import { demoCompanyProfile } from '@/utils/company'
+import { batchesForStocks, sampleOutletChecks, sampleShipments, samplePlans } from './operationsSeed'
 
 // Entirely fictional demo data. Never replace with customer data in this file.
 export function createDemoData(): DistributionData {
@@ -74,8 +75,12 @@ export function createDemoData(): DistributionData {
   const preallocated = (productId:string): number => initialOrders
     .filter(o=>['confirmed','picking','ready','in_route'].includes(o.status))
     .reduce((sum,o)=>sum+o.items.filter(i=>i.productId===productId).reduce((q,i)=>q+i.quantity,0),0)
+  const initialStocks=products.flatMap(([id],i)=>[
+    {warehouseId:'w1',productId:id,onHand:60+i*19,reserved:5+(i%5)*2+preallocated(id),updatedAt:now},
+    {warehouseId:'w2',productId:id,onHand:20+i*4,reserved:i%4,updatedAt:now},
+  ])
   return {
-    version:4,
+    version:5,
     customers:[...customers.map(([id,legalName,bin,contactName,status,creditLimit],index)=>({
       id,legalName,bin,contactName,status,creditLimit,termsDays:14,
       phone:'+7 700 000 00 '+id.slice(1).padStart(2,'0'),
@@ -97,13 +102,14 @@ export function createDemoData(): DistributionData {
       {id:'vi6',outletId:'o8',repId:'u5',plannedDate:dayOffset(0),status:'in_progress',purpose:'Собрать заявку',notes:'',startedAt:now},
       {id:'vi7',outletId:'o9',repId:'u4',plannedDate:dayOffset(-1),status:'completed',purpose:'Контроль выкладки',notes:'Полки заполнены.',startedAt:now,finishedAt:now},
     ],
-    products:products.map(([id,sku,name,category,unit,price,weightKg])=>({id,sku,name,category,unit,price,weightKg,active:true})),
+    products:products.map(([id,sku,name,category,unit,price,weightKg])=>({id,sku,name,category,unit,price,weightKg,active:true,volumeM3:Number((weightKg/240).toFixed(4))})),
     warehouses:[{id:'w1',name:'Основной склад',address:'Астана · Логистическая зона'},
       {id:'w2',name:'Дополнительный склад',address:'Астана · Южный сектор'}],
-    stocks:products.flatMap(([id],i)=>[
-      {warehouseId:'w1',productId:id,onHand:60+i*19,reserved:5+(i%5)*2+preallocated(id),updatedAt:now},
-      {warehouseId:'w2',productId:id,onHand:20+i*4,reserved:i%4,updatedAt:now},
-    ]),
+    stocks:initialStocks,
+    stockBatches:batchesForStocks(initialStocks),
+    outletShipments:sampleShipments(),
+    outletStockChecks:sampleOutletChecks(),
+    salesPlans:samplePlans(),
     orders:initialOrders,
     debts:[
       {id:'d1',customerId:'c1',invoice:'РТ-000182',issuedAt:dayOffset(-24),dueAt:dayOffset(-10),amount:560000,paid:200000},
@@ -121,33 +127,35 @@ export function createDemoData(): DistributionData {
       {id:'con4',customerId:'c7',outletId:'o9',productId:'p1',sent:75,sold:53,returned:0,price:2500,handedAt:dayOffset(-13),reconciledAt:dayOffset(-3)},
     ],
     employees:[
-      {id:'u1',name:'Администратор демо',initials:'АД',role:'admin',phone:'—',active:true},
-      {id:'u2',name:'Руководитель демо',initials:'РД',role:'director',phone:'—',active:true},
-      {id:'u3',name:'Супервайзер демо',initials:'СД',role:'supervisor',phone:'—',active:true},
-      {id:'u4',name:'Алексей (демо)',initials:'АЛ',role:'sales',phone:'—',active:true},
-      {id:'u5',name:'Диана (демо)',initials:'ДИ',role:'sales',phone:'—',active:true},
-      {id:'u6',name:'Тимур (демо)',initials:'ТИ',role:'sales',phone:'—',active:true},
-      {id:'u7',name:'Диспетчер демо',initials:'ДД',role:'dispatcher',phone:'—',active:true},
+      {id:'u1',name:'Администратор',initials:'АД',role:'admin',phone:'—',active:true},
+      {id:'u2',name:'Руководитель',initials:'РД',role:'director',phone:'—',active:true},
+      {id:'u3',name:'Супервайзер',initials:'СД',role:'supervisor',phone:'—',active:true},
+      {id:'u4',name:'Алексей',initials:'АЛ',role:'sales',phone:'—',active:true},
+      {id:'u5',name:'Диана',initials:'ДИ',role:'sales',phone:'—',active:true},
+      {id:'u6',name:'Тимур',initials:'ТИ',role:'sales',phone:'—',active:true},
+      {id:'u7',name:'Диспетчер',initials:'ДД',role:'dispatcher',phone:'—',active:true},
       {id:'u8',name:'Водитель №1',initials:'В1',role:'driver',phone:'—',active:true},
       {id:'u9',name:'Водитель №2',initials:'В2',role:'driver',phone:'—',active:true},
-      {id:'u10',name:'Кладовщик демо',initials:'КД',role:'warehouse',phone:'—',active:true},
-      {id:'u11',name:'Бухгалтер демо',initials:'БД',role:'accountant',phone:'—',active:true},
+      {id:'u10',name:'Кладовщик',initials:'КД',role:'warehouse',phone:'—',active:true},
+      {id:'u11',name:'Бухгалтер',initials:'БД',role:'accountant',phone:'—',active:true},
+      {id:'u12',name:'Экспедитор №1',initials:'Э1',role:'forwarder',phone:'—',active:true},
+      {id:'u13',name:'Экспедитор №2',initials:'Э2',role:'forwarder',phone:'—',active:true},
     ],
     vehicles:[
-      {id:'v1',plate:'000 DEM 01',title:'Грузовик 3,5 т · демо',capacityKg:3500,driverId:'u8'},
-      {id:'v2',plate:'001 DEM 01',title:'Фургон 1,5 т · демо',capacityKg:1500,driverId:'u9'},
-      {id:'v3',plate:'002 DEM 01',title:'Грузовик 5 т · демо',capacityKg:5000,driverId:'u8'},
+      {id:'v1',plate:'000 DEM 01',title:'Грузовик 3,5 т · демо',capacityKg:3500,driverId:'u8',volumeM3:19,maxPallets:7,active:true,year:2022},
+      {id:'v2',plate:'001 DEM 01',title:'Фургон 1,5 т · демо',capacityKg:1500,driverId:'u9',volumeM3:10,maxPallets:4,active:true,year:2023},
+      {id:'v3',plate:'002 DEM 01',title:'Грузовик 5 т · демо',capacityKg:5000,driverId:'u8',volumeM3:28,maxPallets:10,active:true,year:2021},
     ],
     routes:[{
-      id:'r1',number:'Р-001',date:dayOffset(0),driverId:'u8',vehicleId:'v1',status:'active',
+      id:'r1',number:'Р-001',date:dayOffset(0),driverId:'u8',forwarderId:'u12',vehicleId:'v1',status:'active',
       stops:[
-        {id:'st1',outletId:'o9',orderIds:['ord8'],position:1,status:'delivered',notes:'Демо: получено подтверждение доставки',completedAt:now},
+        {id:'st1',outletId:'o9',orderIds:['ord8'],position:1,status:'delivered',notes:'Подтверждена доставка',completedAt:now},
         {id:'st2',outletId:'o10',orderIds:['ord9'],position:2,status:'pending',notes:''},
       ],
     }],
     documents:[
-      {id:'doc1',entityType:'customer',entityId:'c1',filename:'Пример договора (демо)',mimeType:'application/pdf',size:0,createdAt:dayOffset(-40),createdBy:'u1',demoOnly:true},
-      {id:'doc2',entityType:'order',entityId:'ord11',filename:'Пример накладной (демо)',mimeType:'image/jpeg',size:0,createdAt:dayOffset(-2),createdBy:'u8',demoOnly:true},
+      {id:'doc1',entityType:'customer',entityId:'c1',filename:'Пример договора',mimeType:'application/pdf',size:0,createdAt:dayOffset(-40),createdBy:'u1',demoOnly:true},
+      {id:'doc2',entityType:'order',entityId:'ord11',filename:'Пример накладной',mimeType:'image/jpeg',size:0,createdAt:dayOffset(-2),createdBy:'u8',demoOnly:true},
     ],
     activities:[
       {id:'act1',entityType:'outlet',entityId:'o1',kind:'note',message:'Пример: согласован следующий визит представителя.',actorId:'u4',createdAt:now},

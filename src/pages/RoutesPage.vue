@@ -11,6 +11,7 @@ import { can } from '@/access'
 import { useDistributionStore } from '@/stores/distribution'
 import { dayOffset, displayDate, money, orderTotal, orderWeight } from '@/utils/domain'
 import { routeProgress } from '@/utils/routeProgress'
+import { estimatedVolume } from '@/utils/expiry'
 import { matchesSearch } from '@/utils/search'
 const store=useDistributionStore()
 const router=useRouter()
@@ -19,11 +20,12 @@ const error=ref('')
 const routeSearch=ref('')
 const routeStatus=ref('')
 const routeDate=ref('')
-const plan=reactive({date:dayOffset(1),vehicleId:'v1',driverId:'u8',orderIds:[] as string[]})
+const plan=reactive({date:dayOffset(1),vehicleId:'v1',driverId:'u8',forwarderId:'u12',orderIds:[] as string[]})
 watch(()=>plan.date,()=>{plan.orderIds=[]})
 const availableOrders=computed(()=>store.visibleOrders.filter(o=>o.status==='ready' && o.deliveryDate===plan.date && !o.routeId))
 const selectedOrders=computed(()=>availableOrders.value.filter(o=>plan.orderIds.includes(o.id)))
 const selectedWeight=computed(()=>selectedOrders.value.reduce((s,o)=>s+orderWeight(o.items,store.data.products),0))
+const selectedVolume=computed(()=>selectedOrders.value.reduce((s,o)=>s+estimatedVolume(o.items,store.data.products),0))
 const vehicle=computed(()=>store.data.vehicles.find(v=>v.id===plan.vehicleId))
 const allRoutes=computed(()=>[...store.visibleRoutes].sort((a,b)=>b.date.localeCompare(a.date)))
 function storeName(id:string){return store.data.outlets.find(o=>o.id===id)?.name||'Торговая точка'}
@@ -45,7 +47,7 @@ const routes=computed(()=>allRoutes.value.filter(r=>
 ))
 function createRoute(){
   error.value=''
-  try{const r=store.planRoute({...plan});planOpen.value=false;store.notify('Рейс '+r.number+' создан (демо).');router.push('/routes/'+r.id)}
+  try{const r=store.planRoute({...plan});planOpen.value=false;store.notify('Рейс '+r.number+' создан.');router.push('/routes/'+r.id)}
   catch(e){error.value=e instanceof Error?e.message:'Ошибка формирования рейса.'}
 }
 </script>
@@ -74,6 +76,7 @@ function createRoute(){
         <div class="route-monitor-meta">
           <div><span>Водитель</span><strong>{{store.data.employees.find(e=>e.id===r.driverId)?.name||'—'}}</strong></div>
           <div><span>Машина</span><strong>{{store.data.vehicles.find(v=>v.id===r.vehicleId)?.plate||'—'}}</strong></div>
+          <div v-if="r.forwarderId"><span>Экспедитор</span><strong>{{store.data.employees.find(e=>e.id===r.forwarderId)?.name||'—'}}</strong></div>
           <div><span>Выполнено</span><strong>{{routeProgress(r).completed}} / {{routeProgress(r).total}}</strong></div>
           <div v-if="routeProgress(r).problems"><span>Проблемы</span><strong class="text-danger">{{routeProgress(r).problems}}</strong></div>
         </div>
@@ -101,8 +104,9 @@ function createRoute(){
     <form class="stack-lg" @submit.prevent="createRoute">
       <div class="form-grid">
         <label class="field"><span>Дата доставки</span><input v-model="plan.date" type="date" :min="dayOffset(0)" required /></label>
-        <label class="field"><span>Автомобиль</span><select v-model="plan.vehicleId" required><option v-for="v in store.data.vehicles" :key="v.id" :value="v.id">{{v.plate}} · {{v.capacityKg}} кг</option></select></label>
-        <label class="field field-wide"><span>Водитель</span><select v-model="plan.driverId" required><option v-for="driver in store.data.employees.filter(e=>e.role==='driver'&&e.active)" :key="driver.id" :value="driver.id">{{driver.name}}</option></select></label>
+        <label class="field"><span>Автомобиль</span><select v-model="plan.vehicleId" required><option v-for="v in store.data.vehicles.filter(v=>v.active!==false)" :key="v.id" :value="v.id">{{v.plate}} · {{v.capacityKg}} кг</option></select></label>
+        <label class="field"><span>Водитель</span><select v-model="plan.driverId" required><option v-for="driver in store.data.employees.filter(e=>e.role==='driver'&&e.active)" :key="driver.id" :value="driver.id">{{driver.name}}</option></select></label>
+        <label class="field"><span>Экспедитор</span><select v-model="plan.forwarderId"><option value="">Без экспедитора</option><option v-for="e in store.data.employees.filter(e=>e.role==='forwarder'&&e.active)" :key="e.id" :value="e.id">{{e.name}}</option></select></label>
       </div>
       <div class="form-section-title"><strong>Готовые заявки — {{availableOrders.length}}</strong><span class="muted small">Доступны только заказы со статусом «Готова»</span></div>
       <div v-if="availableOrders.length" class="check-list">
@@ -113,7 +117,9 @@ function createRoute(){
         </label>
       </div>
       <EmptyState v-else icon="package-open" title="Нет готовых заявок" description="Сначала подтвердите и соберите заказы в разделе «Заявки»." />
-      <div class="weight-banner" :class="{'over-capacity':selectedWeight>(vehicle?.capacityKg||0)}"><span>Вес выбранных заказов</span><strong>{{selectedWeight.toFixed(1)}} / {{vehicle?.capacityKg}} кг</strong></div>
+      <div class="weight-banner" :class="{'over-capacity':selectedWeight>(vehicle?.capacityKg||0)}"><span>Вес груза</span><strong>{{selectedWeight.toFixed(1)}} / {{vehicle?.capacityKg}} кг</strong></div>
+      <div class="weight-banner" :class="{'over-capacity':selectedVolume>(vehicle?.volumeM3||0)}"><span>Объём груза</span><strong>{{selectedVolume.toFixed(2)}} / {{vehicle?.volumeM3??'—'}} м³</strong></div>
+      <router-link class="text-link" v-if="can(store.currentRole,'fleet')" to="/fleet">Открыть справочник машин →</router-link>
       <div v-if="error" class="form-error" role="alert">{{error}}</div>
       <div class="form-footer"><button type="button" class="btn btn-secondary" @click="planOpen=false">Отмена</button><button type="submit" class="btn btn-primary" :disabled="!plan.orderIds.length">Сформировать рейс</button></div>
     </form>

@@ -4,7 +4,7 @@ withDefaults(defineProps<{icon?:string;title:string;description?:string}>(),{ico
 </script>
 <template>
   <div class="empty-state">
-    <span class="empty-icon"><AppIcon :name="icon" :size="25" /></span>
+    <span class="empty-icon"><AppIcon :name="icon" :size="22" :stroke-width="1.7" /></span>
     <h3>{{title}}</h3><p v-if="description">{{description}}</p><slot />
   </div>
 </template>

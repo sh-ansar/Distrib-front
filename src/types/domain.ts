@@ -1,4 +1,4 @@
-export type Role = 'admin' | 'director' | 'supervisor' | 'sales' | 'dispatcher' | 'warehouse' | 'driver' | 'accountant'
+export type Role = 'admin' | 'director' | 'supervisor' | 'sales' | 'dispatcher' | 'warehouse' | 'driver' | 'forwarder' | 'accountant'
 export type OrderStatus = 'new' | 'confirmed' | 'picking' | 'ready' | 'in_route' | 'delivered' | 'partial' | 'cancelled'
 export type RouteStatus = 'planned' | 'loading' | 'active' | 'completed'
 export type StopStatus = 'pending' | 'delivered' | 'partial' | 'failed'
@@ -68,12 +68,69 @@ export interface Product {
   price: number
   weightKg: number
   active: boolean
+  volumeM3?: number
 }
 export interface Warehouse {
   id: string
   name: string
   address: string
 }
+export interface StockBatch {
+  id: string
+  warehouseId: string
+  productId: string
+  batchNumber: string
+  receivedDate: string
+  expiryDate: string
+  initialQty: number
+  remainingQty: number
+  supplier: string
+  receiptRef: string
+  recordedBy?: string
+}
+export interface OutletShipment {
+  id: string
+  outletId: string
+  productId: string
+  batchId: string
+  batchNumber: string
+  expiryDate: string
+  quantity: number
+  orderId: string
+  routeId: string
+  deliveredAt: string
+}
+export interface OutletStockCheck {
+  id: string
+  outletId: string
+  productId: string
+  batchNumber: string
+  expiryDate: string
+  quantity: number
+  checkedAt: string
+  checkedBy: string
+  notes: string
+}
+export interface SalesPlan {
+  id: string
+  employeeId: string
+  month: string
+  revenueTarget: number
+  visitsTarget: number
+  outletsTarget: number
+  notes: string
+}
+export interface WaybillSample {
+  simulated: true
+  invoiceNumber: string
+  invoiceDate: string
+  supplier: string
+  recipient: string
+  items: Array<{productId:string;name:string;quantity:number;unit:string;price:number}>
+  total: number
+  verified: boolean
+}
+
 export interface Stock {
   warehouseId: string
   productId: string
@@ -135,6 +192,11 @@ export interface Vehicle {
   title: string
   capacityKg: number
   driverId: string
+  volumeM3?: number
+  maxPallets?: number
+  active?: boolean
+  year?: number
+  notes?: string
 }
 export interface RouteStop {
   id: string
@@ -151,6 +213,7 @@ export interface DeliveryRoute {
   date: string
   driverId: string
   vehicleId: string
+  forwarderId?: string
   status: RouteStatus
   stops: RouteStop[]
 }
@@ -164,6 +227,8 @@ export interface DocumentRecord {
   createdAt: string
   createdBy: string
   demoOnly: boolean
+  localAttachment?: boolean
+  sampleExtraction?: WaybillSample
 }
 export interface Activity {
   id: string
@@ -195,6 +260,10 @@ export interface DistributionData {
   products: Product[]
   warehouses: Warehouse[]
   stocks: Stock[]
+  stockBatches: StockBatch[]
+  outletShipments: OutletShipment[]
+  outletStockChecks: OutletStockCheck[]
+  salesPlans: SalesPlan[]
   orders: Order[]
   debts: Debt[]
   consignments: Consignment[]

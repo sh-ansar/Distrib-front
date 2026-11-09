@@ -137,7 +137,7 @@ const paymentNames={bank:'Безналичная',cash:'Наличная',mixed:
           <EmptyState v-if="!debts.length" title="Нет документов задолженности" />
         </SectionCard>
         <SectionCard title="Документы">
-          <div v-for="doc in docs" :key="doc.id" class="company-record-line"><div><strong>{{doc.filename}}</strong><small>Демо-запись, файл не загружен</small></div></div>
+          <div v-for="doc in docs" :key="doc.id" class="company-record-line"><div><strong>{{doc.filename}}</strong><small>Образец записи, файл не загружен</small></div></div>
           <EmptyState v-if="!docs.length" title="Документы ещё не добавлены" />
         </SectionCard>
         <SectionCard title="История работы" description="Изменения и события по компании">

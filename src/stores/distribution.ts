@@ -2,7 +2,9 @@ import { defineStore } from 'pinia'
 import { can, type Capability } from '@/access'
 import { createDemoData } from '@/data/seed'
 import { companyProfile } from '@/utils/company'
-import type { Activity, Customer, CustomerProfile, Debt, DeliveryRoute, DistributionData, DocumentRecord, Employee, Order, OrderItem, OrderStatus, Outlet, Role, RouteStatus, StopStatus, Visit, VisitStatus } from '@/types/domain'
+import { allocateFEFO, estimatedVolume, sellableQty } from '@/utils/expiry'
+import { batchesForStocks, sampleOutletChecks, sampleShipments, samplePlans } from '@/data/operationsSeed'
+import type { Activity, Customer, CustomerProfile, Debt, DeliveryRoute, DistributionData, DocumentRecord, Employee, OutletShipment, Order, OrderItem, OrderStatus, Outlet, Role, RouteStatus, StopStatus, Visit, VisitStatus, StockBatch, SalesPlan, WaybillSample, Vehicle } from '@/types/domain'
 import { canTransitionOrder, consignmentBalance, debtBalance, isoDay, orderTotal, orderWeight, uid } from '@/utils/domain'
 
 const STORAGE_KEY = 'itp-distribution-demo-v1'
@@ -18,10 +20,11 @@ function clone<T>(value: T): T { return JSON.parse(JSON.stringify(value)) as T }
 function validDemo(data: unknown): data is DistributionData {
   if (!data || typeof data !== 'object') return false
   const candidate = data as Record<string, unknown>
-  return (candidate.version === 1 || candidate.version === 2 || candidate.version === 3 || candidate.version === 4) && [
+  return (candidate.version === 1 || candidate.version === 2 || candidate.version === 3 || candidate.version === 4 || candidate.version === 5) && [
     'customers','outlets','products','warehouses','stocks','orders','debts','consignments',
     'employees','vehicles','routes','documents','activities',
-  ].every(key => Array.isArray(candidate[key])) && (candidate.version === 1 || Array.isArray(candidate.visits))
+  ].every(key => Array.isArray(candidate[key])) && (candidate.version === 1 || Array.isArray(candidate.visits)) &&
+    (candidate.version !== 5 || ['stockBatches','outletShipments','outletStockChecks','salesPlans'].every(key=>Array.isArray(candidate[key])))
 }
 function cleanNumber(value: number): boolean { return Number.isFinite(value) && value >= 0 }
 
@@ -40,8 +43,8 @@ export const useDistributionStore = defineStore('distribution', {
     visibleOutlets(state): Outlet[] {
       const employee = state.data.employees.find(e => e.id === state.currentUserId)
       if (employee?.role === 'sales') return state.data.outlets.filter(o => o.repId === employee.id)
-      if (employee?.role === 'driver') {
-        const outletIds = new Set(state.data.routes.filter(r => r.driverId === employee.id).flatMap(r => r.stops.map(s => s.outletId)))
+      if (employee?.role === 'driver' || employee?.role === 'forwarder') {
+        const outletIds = new Set(state.data.routes.filter(r => r.driverId === employee.id || r.forwarderId === employee.id).flatMap(r => r.stops.map(s => s.outletId)))
         return state.data.outlets.filter(o => outletIds.has(o.id))
       }
       return state.data.outlets
@@ -60,7 +63,7 @@ export const useDistributionStore = defineStore('distribution', {
     },
     visibleRoutes(state): DeliveryRoute[] {
       const employee = state.data.employees.find(e => e.id === state.currentUserId)
-      if (employee?.role === 'driver') return state.data.routes.filter(r => r.driverId === employee.id)
+      if (employee?.role === 'driver' || employee?.role === 'forwarder') return state.data.routes.filter(r => r.driverId === employee.id || r.forwarderId === employee.id)
       if (employee?.role === 'sales') {
         const ids = new Set(state.data.outlets.filter(o=>o.repId===employee.id).map(o=>o.id))
         return state.data.routes.map(r=>({...r,stops:r.stops.filter(s=>ids.has(s.outletId))}))
@@ -70,7 +73,7 @@ export const useDistributionStore = defineStore('distribution', {
     },
     visibleCustomers(): Customer[] {
       const employee = this.currentUser
-      if (employee?.role !== 'sales' && employee?.role !== 'driver') return this.data.customers
+      if (employee?.role !== 'sales' && employee?.role !== 'driver' && employee?.role !== 'forwarder') return this.data.customers
       const ids = new Set(this.visibleOutlets.map(o => o.customerId))
       return this.data.customers.filter(c => ids.has(c.id))
     },
@@ -92,8 +95,12 @@ export const useDistributionStore = defineStore('distribution', {
             const customerIds = new Set(parsed.customers.map(c=>c.id))
             const outletIds = new Set(parsed.outlets.map(o=>o.id))
             this.data = {
-              ...parsed, version: 4,
+              ...parsed, version: 5,
               visits: Array.isArray(parsed.visits) ? parsed.visits : [],
+              stockBatches: Array.isArray(parsed.stockBatches) ? parsed.stockBatches : batchesForStocks(parsed.stocks),
+              outletShipments: Array.isArray(parsed.outletShipments) ? parsed.outletShipments : sampleShipments(),
+              outletStockChecks: Array.isArray(parsed.outletStockChecks) ? parsed.outletStockChecks : sampleOutletChecks(),
+              salesPlans: Array.isArray(parsed.salesPlans) ? parsed.salesPlans : samplePlans(),
               customers: [
                 ...parsed.customers.map(c=>({...c,profile:companyProfile(c.profile ?? sampleCustomers.get(c.id)?.profile)})),
                 ...enriched.customers.filter(c=>!customerIds.has(c.id)),
@@ -255,8 +262,8 @@ export const useDistributionStore = defineStore('distribution', {
       return this.data.stocks.filter(s => s.productId === productId).reduce((sum,s) => sum + Math.max(0,s.onHand-s.reserved),0)
     },
     freeInPrimary(productId:string): number {
-      const stock = this.data.stocks.find(s => s.warehouseId === 'w1' && s.productId === productId)
-      return stock ? Math.max(0,stock.onHand-stock.reserved) : 0
+      const stock=this.data.stocks.find(s=>s.warehouseId==='w1'&&s.productId===productId)
+      return Math.max(0,Math.min(stock?.onHand??0,sellableQty(this.data.stockBatches,productId,'w1'))-(stock?.reserved??0))
     },
     createOrder(payload:{outletId:string;deliveryDate:string;notes:string;items:OrderItem[]}):Order {
       this.require('orders:edit')
@@ -337,11 +344,17 @@ export const useDistributionStore = defineStore('distribution', {
       this.log('outlet',record.outletId,'consignment','Демо-сверка: продано '+sold+', возвращено '+returned)
       this.persist()
     },
-    planRoute(payload:{date:string;vehicleId:string;driverId:string;orderIds:string[]}):DeliveryRoute {
+    planRoute(payload:{date:string;vehicleId:string;driverId:string;forwarderId?:string;orderIds:string[]}):DeliveryRoute {
       this.require('routes:edit')
       invariant(payload.date>=isoDay(),'Дата рейса не может быть в прошлом.')
       const vehicle=this.data.vehicles.find(v=>v.id===payload.vehicleId)
-      invariant(vehicle,'Автомобиль не найден.')
+      invariant(vehicle && vehicle.active!==false,'Активный автомобиль не найден.')
+      invariant(!this.data.routes.some(r=>r.date===payload.date&&r.vehicleId===payload.vehicleId&&r.status!=='completed'),'Автомобиль уже назначен на рейс в эту дату.')
+      invariant(!this.data.routes.some(r=>r.date===payload.date&&r.driverId===payload.driverId&&r.status!=='completed'),'Водитель уже назначен на рейс в эту дату.')
+      if(payload.forwarderId) {
+        invariant(this.data.employees.some(e=>e.id===payload.forwarderId&&e.role==='forwarder'&&e.active),'Выберите действующего экспедитора.')
+        invariant(!this.data.routes.some(r=>r.date===payload.date&&r.forwarderId===payload.forwarderId&&r.status!=='completed'),'Экспедитор уже назначен на рейс в эту дату.')
+      }
       invariant(this.data.employees.some(e=>e.id===payload.driverId && e.role==='driver' && e.active),'Выберите водителя.')
       invariant(payload.orderIds.length>0 && new Set(payload.orderIds).size===payload.orderIds.length,'Выберите уникальные заявки.')
       const selected=payload.orderIds.map(id=>this.visibleOrders.find(o=>o.id===id))
@@ -351,10 +364,12 @@ export const useDistributionStore = defineStore('distribution', {
       invariant(orders.every(o=>!o.routeId),'Некоторые заявки уже назначены на рейс.')
       const weight=orders.reduce((sum,o)=>sum+orderWeight(o.items,this.data.products),0)
       invariant(weight<=vehicle.capacityKg,'Вес '+weight.toFixed(1)+' кг превышает грузоподъёмность '+vehicle.capacityKg+' кг.')
+      const volume=orders.reduce((sum,o)=>sum+estimatedVolume(o.items,this.data.products),0)
+      invariant(!vehicle.volumeM3||volume<=vehicle.volumeM3+1e-8,'Объём '+volume.toFixed(2)+' м³ превышает вместимость '+vehicle.volumeM3+' м³.')
       const uniqueOutlets=[...new Set(orders.map(o=>o.outletId))]
       const route:DeliveryRoute={
         id:uid('r'),number:'Р-'+String(this.data.routes.length+1).padStart(3,'0'),
-        date:payload.date,driverId:payload.driverId,vehicleId:payload.vehicleId,status:'planned',
+        date:payload.date,driverId:payload.driverId,forwarderId:payload.forwarderId||undefined,vehicleId:payload.vehicleId,status:'planned',
         stops:uniqueOutlets.map((outletId,position)=>({
           id:uid('st'),outletId,position:position+1,status:'pending',notes:'',
           orderIds:orders.filter(o=>o.outletId===outletId).map(o=>o.id),
@@ -397,22 +412,41 @@ export const useDistributionStore = defineStore('distribution', {
       const orders=stop.orderIds.map(id=>this.data.orders.find(o=>o.id===id))
       invariant(orders.every(o=>o?.status==='in_route'),'В остановке есть недоступные для доставки заявки.')
       if(status==='delivered') {
+        // Validate the complete delivery and plan all allocations before modifying stock.
+        const draft=this.data.stockBatches.map(batch=>({...batch}))
+        const shipments: OutletShipment[]=[]
         const demand=new Map<string,number>()
-        for(const order of orders) for(const item of order!.items) {
-          demand.set(item.productId,(demand.get(item.productId)??0)+item.quantity)
+        for(const order of orders){
+          for(const item of order!.items){
+            demand.set(item.productId,(demand.get(item.productId)??0)+item.quantity)
+            const allocations=allocateFEFO(draft,item.productId,'w1',item.quantity)
+            for(const allocation of allocations){
+              const batch=draft.find(b=>b.id===allocation.batchId)!
+              batch.remainingQty-=allocation.quantity
+              shipments.push({
+                id:uid('ship'),outletId:order!.outletId,productId:item.productId,
+                batchId:batch.id,batchNumber:batch.batchNumber,expiryDate:batch.expiryDate,
+                quantity:allocation.quantity,orderId:order!.id,routeId:route.id,deliveredAt:new Date().toISOString(),
+              })
+            }
+          }
         }
-        // Validate all lines before mutating anything; do not silently clamp stock to zero.
-        for(const [productId,count] of demand) {
-          const stock=this.data.stocks.find(s=>s.warehouseId==='w1'&&s.productId===productId)
-          invariant(stock && stock.onHand>=count && stock.reserved>=count,
-            'Недостаточно учтённого товара или резерва. Сверьте склад до подтверждения доставки.')
+        for(const [productId,count] of demand){
+          const stock=this.data.stocks.find(x=>x.warehouseId==='w1'&&x.productId===productId)
+          invariant(stock&&stock.onHand>=count&&stock.reserved>=count,
+            'Недостаточно товара или резерва. Сверьте склад до подтверждения доставки.')
         }
-        for(const [productId,count] of demand) {
-          const stock=this.data.stocks.find(s=>s.warehouseId==='w1'&&s.productId===productId)!
+        for(const [productId,count] of demand){
+          const stock=this.data.stocks.find(x=>x.warehouseId==='w1'&&x.productId===productId)!
           stock.onHand-=count
           stock.reserved-=count
           stock.updatedAt=new Date().toISOString()
         }
+        for(const updated of draft){
+          this.data.stockBatches.find(b=>b.id===updated.id)!.remainingQty=updated.remainingQty
+        }
+        this.data.outletShipments.push(...shipments)
+        // Deliveries are not an accurate representation of current stock on store shelves.
       }
       for(const order of orders) {
         if(order) order.status=status==='delivered'?'delivered':'partial'
@@ -439,7 +473,90 @@ export const useDistributionStore = defineStore('distribution', {
         id:uid('doc'),entityType,entityId,filename:filename.trim(),mimeType,size,
         createdAt:new Date().toISOString(),createdBy:this.currentUserId,demoOnly:true,
       })
-      this.log(entityType,entityId,'document','Прикреплена запись о документе (демо, без файла)')
+      this.log(entityType,entityId,'document','Добавлена запись о документе без сохранения оригинала')
+      this.persist()
+      return this.data.documents[0]!
+    },
+
+    receiveBatch(payload:{warehouseId:string;productId:string;batchNumber:string;receivedDate:string;expiryDate:string;quantity:number;supplier:string;receiptRef:string}):StockBatch {
+      this.require('inventory:edit')
+      invariant(this.data.warehouses.some(w=>w.id===payload.warehouseId),'Склад не найден.')
+      invariant(this.data.products.some(p=>p.id===payload.productId&&p.active),'Товар не найден.')
+      invariant(Number.isInteger(payload.quantity)&&payload.quantity>0&&payload.quantity<=1000000,'Количество должно быть положительным целым числом.')
+      invariant(/^\d{4}-\d{2}-\d{2}$/.test(payload.receivedDate)&&payload.receivedDate<=isoDay(),'Укажите корректную дату поступления.')
+      invariant(/^\d{4}-\d{2}-\d{2}$/.test(payload.expiryDate)&&payload.expiryDate>=payload.receivedDate,'Срок годности не может закончиться раньше даты поступления.')
+      invariant(payload.batchNumber.trim().length>=2,'Укажите номер партии.')
+      invariant(!this.data.stockBatches.some(b=>b.warehouseId===payload.warehouseId&&b.productId===payload.productId&&b.batchNumber===payload.batchNumber.trim()),'Партия с таким номером уже существует.')
+      const stock=this.data.stocks.find(x=>x.warehouseId===payload.warehouseId&&x.productId===payload.productId)
+      invariant(stock,'Складская позиция не найдена.')
+      const batch:StockBatch={
+        id:uid('lot'),productId:payload.productId,warehouseId:payload.warehouseId,
+        batchNumber:payload.batchNumber.trim(),receivedDate:payload.receivedDate,
+        expiryDate:payload.expiryDate,initialQty:payload.quantity,remainingQty:payload.quantity,
+        supplier:payload.supplier.trim(),receiptRef:payload.receiptRef.trim(),recordedBy:this.currentUserId,
+      }
+      stock.onHand+=payload.quantity
+      stock.updatedAt=new Date().toISOString()
+      this.data.stockBatches.unshift(batch)
+      this.persist()
+      return batch
+    },
+    recordOutletCheck(payload:{outletId:string;productId:string;batchNumber:string;expiryDate:string;quantity:number;notes:string}){
+      this.require('visits:edit')
+      invariant(this.visibleOutlets.some(o=>o.id===payload.outletId),'Магазин недоступен.')
+      invariant(this.data.products.some(p=>p.id===payload.productId),'Товар не найден.')
+      invariant(payload.batchNumber.trim().length>=2&&/^\d{4}-\d{2}-\d{2}$/.test(payload.expiryDate),'Укажите номер партии и срок годности.')
+      invariant(Number.isInteger(payload.quantity)&&payload.quantity>=0,'Остаток должен быть неотрицательным целым.')
+      const row={
+        id:uid('check'),outletId:payload.outletId,productId:payload.productId,
+        batchNumber:payload.batchNumber.trim(),expiryDate:payload.expiryDate,
+        quantity:payload.quantity,checkedAt:new Date().toISOString(),checkedBy:this.currentUserId,notes:payload.notes.trim(),
+      }
+      this.data.outletStockChecks.unshift(row)
+      this.log('outlet',payload.outletId,'stock-check','Проверен остаток: партия '+row.batchNumber)
+      this.persist()
+      return row
+    },
+    saveSalesPlan(payload:{employeeId:string;month:string;revenueTarget:number;visitsTarget:number;outletsTarget:number;notes:string}):SalesPlan {
+      this.require('plans:edit')
+      invariant(this.data.employees.some(e=>e.id===payload.employeeId&&e.role==='sales'&&e.active),'Выберите торгового представителя.')
+      invariant(/^\d{4}-\d{2}$/.test(payload.month),'Неверный месяц.')
+      invariant([payload.revenueTarget,payload.visitsTarget,payload.outletsTarget].every(v=>Number.isInteger(v)&&v>=0),'План должен содержать целые неотрицательные значения.')
+      let plan=this.data.salesPlans.find(p=>p.employeeId===payload.employeeId&&p.month===payload.month)
+      if(plan)Object.assign(plan,payload)
+      else {plan={...payload,id:uid('plan')};this.data.salesPlans.push(plan)}
+      this.log('customer','demo-plan','sales-plan','Обновлён план торгового представителя')
+      this.persist()
+      return plan
+    },
+    addVehicle(payload:{plate:string;title:string;capacityKg:number;volumeM3:number;maxPallets:number;driverId:string;year?:number;notes?:string}):Vehicle {
+      this.require('fleet:edit')
+      invariant(payload.plate.trim().length>=4&&payload.title.trim().length>=3,'Укажите госномер и модель автомобиля.')
+      invariant(!this.data.vehicles.some(v=>v.plate.toLowerCase()===payload.plate.trim().toLowerCase()),'Такой госномер уже зарегистрирован.')
+      invariant(Number.isFinite(payload.capacityKg)&&payload.capacityKg>0&&Number.isFinite(payload.volumeM3)&&payload.volumeM3>0,'Проверьте грузоподъёмность и объём.')
+      invariant(Number.isInteger(payload.maxPallets)&&payload.maxPallets>=0,'Неверная паллетовместимость.')
+      invariant(this.data.employees.some(e=>e.id===payload.driverId&&e.role==='driver'&&e.active),'Выберите действующего водителя.')
+      const vehicle:Vehicle={...payload,plate:payload.plate.trim().toUpperCase(),title:payload.title.trim(),id:uid('v'),active:true}
+      this.data.vehicles.push(vehicle)
+      this.persist()
+      return vehicle
+    },
+    saveSampleWaybill(documentId:string,sample:WaybillSample){
+      this.require('documents:edit')
+      const doc=this.data.documents.find(d=>d.id===documentId)
+      invariant(doc,'Запись о накладной не найдена.')
+      invariant(sample.simulated===true,'Пример должен быть помечен как имитация.')
+      invariant(sample.items.length>0&&Number.isFinite(sample.total)&&sample.total>=0,'Некорректные данные образца.')
+      doc.sampleExtraction=clone({...sample,verified:false})
+      this.log(doc.entityType,doc.entityId,'waybill','Сохранён пример полей накладной, без OCR')
+      this.persist()
+    },
+    verifySampleWaybill(documentId:string){
+      this.require('documents:edit')
+      const doc=this.data.documents.find(d=>d.id===documentId)
+      invariant(doc?.sampleExtraction,'Образец накладной не найден.')
+      doc.sampleExtraction.verified=true
+      this.log(doc.entityType,doc.entityId,'waybill','Образец накладной проверен пользователем')
       this.persist()
     },
     addEmployee(payload:{name:string;role:Role;phone:string}) {
