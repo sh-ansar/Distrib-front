@@ -37,7 +37,6 @@ const shown=computed(()=>filtered.value.slice(0,limit.value))
 const criticalShown=computed(()=>shown.value.filter(item=>item.priority==='critical'))
 const attentionShown=computed(()=>shown.value.filter(item=>item.priority==='attention'))
 function priorityLabel(value:ControlPriority){return value==='critical'?'Срочно':'На контроле'}
-function priorityIcon(value:ControlPriority){return value==='critical'?'alert-circle':'clock-3'}
 function formatDeadline(value?:string){return value?displayDate(value):'—'}
 function actionDescription(item:ControlItem){return item.action+' — '+item.title}
 </script>
