@@ -78,7 +78,7 @@ describe('demo domain workflows', () => {
   it('requires a real visit start and meaningful closing note',()=>{
     const s=useDistributionStore()
     const v=s.createVisit({outletId:'o2',plannedDate:dayOffset(0),purpose:'Проверка остатков'})
-    expect(()=>s.finishVisit(v.id,'completed','Сделано')).toThrow('перехода')
+    expect(()=>s.finishVisit(v.id,'completed','Сделано')).toThrow('переход статуса визита')
     s.startVisit(v.id)
     expect(()=>s.finishVisit(v.id,'completed','нет')).toThrow('не менее 5')
     s.finishVisit(v.id,'completed','Остатки проверены; собрали заявку')
