@@ -55,3 +55,23 @@ test('waybill preview makes no OCR claim',async({page})=>{
   await expect(dlg.getByText('ПРИМЕР ЗАПОЛНЕНИЯ — НЕ РЕЗУЛЬТАТ РАСПОЗНАВАНИЯ')).toBeVisible()
   await expect(dlg.getByText('Файл не отправляется на сервер')).toBeVisible()
 })
+
+
+test('semantic icons and role-aware bottom navigation at 320px',async({page})=>{
+  await page.setViewportSize({width:320,height:740})
+  await page.goto('/')
+  const bottom=page.locator('.mobile-bottom-nav')
+  await expect(bottom).toBeVisible()
+  await expect(bottom.locator('a')).toHaveCount(4)
+  await expect(bottom.locator('a svg')).toHaveCount(4)
+  await expect(bottom.getByRole('button',{name:'Все разделы'})).toBeVisible()
+  await bottom.getByRole('button',{name:'Все разделы'}).click()
+  await expect(page.locator('.sidebar.sidebar-open')).toBeVisible()
+  await expect(page.locator('.sidebar .nav-link svg').first()).toBeVisible()
+  await page.getByRole('button',{name:'Закрыть меню'}).click()
+  await page.getByRole('button',{name:'Настройки тестового пользователя'}).click()
+  await page.locator('.account-popover select').selectOption('u4')
+  await expect(bottom.getByRole('link',{name:'Визиты'})).toBeVisible()
+  await expect(bottom.getByRole('link',{name:'У клиентов'})).toBeVisible()
+  await expect(page.locator('.topbar-account-avatar svg')).toBeVisible()
+})
