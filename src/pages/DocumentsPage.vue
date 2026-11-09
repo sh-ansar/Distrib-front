@@ -21,6 +21,7 @@ const kind=ref('')
 const modal=ref(false)
 const error=ref('')
 const detailId=ref(String(route.query.document??''))
+const linkedStopId=computed(()=>String(route.query.stop??''))
 const form=reactive<{entityType:EntityType;entityId:string;filename:string}>({
   entityType:'order',entityId:'',filename:'',
 })
@@ -31,9 +32,10 @@ const entities=computed(()=>{
   if(form.entityType==='outlet')return store.visibleOutlets.map(x=>({id:x.id,label:x.name}))
   if(form.entityType==='customer')return store.visibleCustomers.map(x=>({id:x.id,label:x.legalName}))
   if(form.entityType==='route')return store.visibleRoutes.map(x=>({id:x.id,label:x.number}))
+  if(form.entityType==='stop')return store.visibleRoutes.flatMap(r=>r.stops.map(stop=>({id:stop.id,label:r.number+' · '+(store.data.outlets.find(o=>o.id===stop.outletId)?.name||'Точка')})))
   return store.visibleOrders.map(x=>({id:x.id,label:x.number}))
 })
-const kinds=[{id:'order',title:'Заявка'},{id:'route',title:'Рейс'},{id:'outlet',title:'Магазин'},{id:'customer',title:'Компания'}]
+const kinds=[{id:'order',title:'Заявка'},{id:'route',title:'Рейс'},{id:'stop',title:'Остановка рейса'},{id:'outlet',title:'Магазин'},{id:'customer',title:'Компания'}]
 const allowed=computed(()=>({
   order:new Set(store.visibleOrders.map(x=>x.id)),
   route:new Set(store.visibleRoutes.map(x=>x.id)),
@@ -44,12 +46,13 @@ const allowed=computed(()=>({
 function entityName(type:EntityType,id:string){
   if(type==='order')return store.data.orders.find(x=>x.id===id)?.number||'Заявка'
   if(type==='route')return store.data.routes.find(x=>x.id===id)?.number||'Рейс'
+  if(type==='stop') {const r=store.visibleRoutes.find(r=>r.stops.some(s=>s.id===id));return r?.number+' · '+(store.data.outlets.find(o=>o.id===r?.stops.find(s=>s.id===id)?.outletId)?.name||'Магазин')}
   if(type==='customer')return store.data.customers.find(x=>x.id===id)?.legalName||'Компания'
   return store.data.outlets.find(x=>x.id===id)?.name||'Магазин'
 }
 watch(()=>route.query.document,v=>{detailId.value=String(v??'')})
 const rows=computed(()=>store.data.documents.filter(d=>
-  allowed.value[d.entityType].has(d.entityId)&&(!kind.value||kind.value===d.entityType)&&
+  allowed.value[d.entityType].has(d.entityId)&&(!kind.value||kind.value===d.entityType)&&(!linkedStopId.value||d.entityType==='stop'&&d.entityId===linkedStopId.value)&&
   [d.filename,entityName(d.entityType,d.entityId)].join(' ').toLowerCase().includes(search.value.toLowerCase())
 ).sort((a,b)=>b.createdAt.localeCompare(a.createdAt)).map(d=>({
   ...d,entityLabel:entityName(d.entityType,d.entityId),
@@ -58,7 +61,7 @@ const rows=computed(()=>store.data.documents.filter(d=>
 const cols=[{key:'filename',label:'Название'},{key:'typeLabel',label:'Связан с'},{key:'entityLabel',label:'Объект'},
   {key:'createdAt',label:'Дата'},{key:'status',label:'Обработка'}]
 const selected=computed(()=>rows.value.find(x=>x.id===detailId.value))
-watch(()=>form.entityType,()=>{form.entityId='';extract.value=null})
+watch(()=>form.entityType,()=>{form.entityId='';extract.value=null},{flush:'sync'})
 function clean(){
   if(previewUrl.value)URL.revokeObjectURL(previewUrl.value)
   previewUrl.value='';picked.value=null
@@ -67,11 +70,12 @@ onUnmounted(clean)
 function open(){
   clean()
   error.value='';extract.value=null;form.filename=''
-  form.entityType=route.query.route?'route':'order'
-  form.entityId=String(route.query.route||'')
+  form.entityType=route.query.stop?'stop':route.query.route?'route':'order'
+  form.entityId=String(route.query.stop||route.query.route||'')
   modal.value=true
 }
 function close(){modal.value=false;clean()}
+function changeEntityType(event:Event){form.entityType=(event.target as HTMLSelectElement).value as EntityType}
 function attach(event:Event){
   clean()
   const file=(event.target as HTMLInputElement).files?.[0]
@@ -113,6 +117,7 @@ function humanSize(bytes:number){return bytes?Math.round(bytes/1024)+' КБ':'�
     <button v-if="can(store.currentRole,'documents:edit')" class="btn btn-primary" type="button" @click="open"><AppIcon name="file-plus-2" :size="17" /> Новая накладная</button>
   </PageTitle>
   <SectionCard title="Реестр документов" description="Названия, привязка к объектам и сохранённые образцы полей" :flush="true">
+    <div v-if="linkedStopId" class="document-stop-context"><span>Накладные выбранной остановки</span><router-link class="text-link" to="/documents">Все документы →</router-link></div>
     <div class="table-toolbar">
       <label class="search-control"><AppIcon name="search" :size="16" /><input v-model="search" aria-label="Поиск накладных" placeholder="Документ, магазин, рейс..." /></label>
       <select v-model="kind" aria-label="Связь документа"><option value="">Все документы</option><option v-for="t in kinds" :key="t.id" :value="t.id">{{t.title}}</option></select>
@@ -134,7 +139,7 @@ function humanSize(bytes:number){return bytes?Math.round(bytes/1024)+' КБ':'�
   <ModalShell :open="modal" title="Накладная" subtitle="Выбор файла, связанный объект и имитация заполнения полей" size="lg" @close="close">
     <form class="stack-lg" @submit.prevent="save">
       <div class="form-grid">
-        <label class="field"><span>Привязать к *</span><select v-model="form.entityType"><option v-for="type in kinds" :key="type.id" :value="type.id">{{type.title}}</option></select></label>
+        <label class="field"><span>Привязать к *</span><select :value="form.entityType" @change="changeEntityType"><option v-for="type in kinds" :key="type.id" :value="type.id">{{type.title}}</option></select></label>
         <label class="field"><span>Объект *</span><select v-model="form.entityId" required><option value="">Выберите</option><option v-for="item in entities" :key="item.id" :value="item.id">{{item.label}}</option></select></label>
         <label class="field field-wide"><span>Название документа</span><input v-model="form.filename" maxlength="255" placeholder="Накладная №..."/></label>
         <label class="field field-wide"><span>Фото или PDF (временный просмотр)</span><input type="file" accept=".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,application/pdf" @change="attach" /></label>

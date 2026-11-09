@@ -133,16 +133,44 @@ export function buildControlItems({
         })
       }
       for(const stop of route.stops){
-        if(stop.status!=='partial'&&stop.status!=='failed')continue
         const outlet=outletMap.get(stop.outletId)
         // Role-filtered route stops are trusted only when the outlet is also in scope.
         if(!outlet)continue
+        if(stop.status==='pending'&&stop.arrivedAt){
+          items.push({
+            id:'arrival:'+stop.id,category:'delivery',priority:'attention',
+            title:'Прибытие без итога доставки',
+            detail:route.number+' · '+outlet.name+' · отметка без GPS',
+            owner:driver,deadline:route.date,
+            to:can(role,'deliveries')?'/delivery?route='+escapeQuery(route.id):'/routes/'+escapeQuery(route.id),
+            action:'Заполнить итог',
+          })
+        }
+        if(stop.status==='delivered'&&can(role,'documents')&&
+          !data.documents.some(doc=>doc.entityType==='stop'&&doc.entityId===stop.id)){
+          items.push({
+            id:'missing-waybill:'+stop.id,category:'documents',priority:'attention',
+            title:'Нет записи о накладной точки',
+            detail:route.number+' · '+outlet.name+' · оригинал файла не хранится',
+            owner:driver,deadline:route.date,
+            to:'/documents?stop='+escapeQuery(stop.id),action:'Добавить запись',
+          })
+        }
+        if(stop.status!=='partial'&&stop.status!=='failed')continue
+        const reconciliation=data.returnReconciliations.find(x=>x.stopId===stop.id)
+        const pending=reconciliation?.status==='submitted'
+        const missing=reconciliation?.status==='confirmed'
+          ? reconciliation.lines.reduce((sum,line)=>sum+line.missingQty,0):0
+        if(reconciliation?.status==='confirmed'&&missing===0)continue
         items.push({
-          id:'stop:'+stop.id,category:'delivery',priority:stop.status==='failed'?'critical':'attention',
-          title:stop.status==='failed'?'Отказ от доставки':'Частичная доставка',
-          detail:route.number+' · '+outlet.name+(stop.notes?' · '+stop.notes:''),
-          owner:driver,deadline:route.date,
-          to:'/routes/'+escapeQuery(route.id),action:'Разобрать доставку',
+          id:'stop:'+stop.id,category:'delivery',
+          priority:missing>0||stop.status==='failed'&&!reconciliation?'critical':'attention',
+          title:missing>0?'Недостача по доставке':stop.status==='failed'?'Отказ от доставки':'Частичная доставка',
+          detail:route.number+' · '+outlet.name+
+            (missing>0?' · '+missing+' ед. остаются в резерве':pending?' · ожидание подтверждения склада':!reconciliation?' · нужна сверка':stop.notes?' · '+stop.notes:''),
+          owner:pending?'Склад':driver,deadline:route.date,
+          to:can(role,'returns')?'/returns?stop='+escapeQuery(stop.id):'/routes/'+escapeQuery(route.id),
+          action:missing>0?'Разобрать недостачу':pending?'Подтвердить сверку':'Сверить возврат',
         })
       }
     }

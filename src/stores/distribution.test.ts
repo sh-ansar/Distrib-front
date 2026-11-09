@@ -178,7 +178,7 @@ describe('demo domain workflows', () => {
     })
     const s=useDistributionStore()
     s.initialize()
-    expect(s.data.version).toBe(5)
+    expect(s.data.version).toBe(6)
     expect(s.data.customers.find(c=>c.id==='c1')?.contactName).toBe('Контакт сохранён до миграции')
     expect(s.data.customers.find(c=>c.id==='c1')?.profile?.tradingName).toBeTruthy()
     expect(s.data.outlets.find(o=>o.id==='o1')?.receivingWindow).toBeTruthy()
@@ -261,4 +261,143 @@ describe('demo domain workflows', () => {
     expect(Object.keys(doc)).not.toContain('content')
     expect(Object.keys(doc)).not.toContain('base64')
   })
+  it('requires an arrival mark for the assigned driver before delivery outcome',()=>{
+    const s=useDistributionStore()
+    s.changeDemoUser('u8')
+    const route=s.visibleRoutes.find(r=>r.id==='r1')!
+    const stop=route.stops.find(st=>st.status==='pending')!
+    expect(()=>s.finishStop(route.id,stop.id,'failed','Магазин закрыт')).toThrow('Сначала отметьте прибытие')
+    s.arriveStop(route.id,stop.id)
+    expect(stop.arrivedBy).toBe('u8')
+    expect(stop.arrivedAt).toBeTruthy()
+    expect(()=>s.arriveStop(route.id,stop.id)).toThrow('Прибытие уже отмечено')
+    s.finishStop(route.id,stop.id,'failed','Магазин закрыт')
+    expect(stop.status).toBe('failed')
+    expect(stop.completedAt).toBeTruthy()
+    expect(s.data.activities.some(a=>a.entityId===stop.id&&a.kind==='arrival')).toBe(true)
+  })
+  it('restricts manual arrivals and metadata to the assigned delivery crew',()=>{
+    const s=useDistributionStore()
+    const stop=s.data.routes.find(r=>r.id==='r1')!.stops.find(st=>st.status==='pending')!
+    s.changeDemoUser('u9')
+    expect(()=>s.arriveStop('r1',stop.id)).toThrow('Рейс недоступен')
+    expect(()=>s.addDocumentMetadata('stop',stop.id,'Бланк.jpg','image/jpeg',40)).toThrow('недоступному')
+    s.changeDemoUser('u12')
+    const result=s.arriveStop('r1',stop.id)
+    expect(result.arrivedBy).toBe('u12')
+    const doc=s.addDocumentMetadata('stop',stop.id,'Накладная для сверки.pdf','application/pdf',1000)
+    expect(doc.entityType).toBe('stop')
+    expect(doc.entityId).toBe(stop.id)
+  })
+  it('keeps optional recipient on successful delivery, without inventing a signature',()=>{
+    const s=useDistributionStore()
+    const route=s.planRoute({date:dayOffset(1),vehicleId:'v2',driverId:'u9',orderIds:['ord3']})
+    s.moveRoute(route.id,'loading');s.moveRoute(route.id,'active')
+    const stop=route.stops[0]!
+    s.changeDemoUser('u9')
+    s.arriveStop(route.id,stop.id)
+    s.finishStop(route.id,stop.id,'delivered','Передано через приёмку','Сотрудник магазина')
+    expect(stop.receivedBy).toBe('Сотрудник магазина')
+    expect(stop.status).toBe('delivered')
+    expect(stop.completedAt).toBeTruthy()
+  })
+
+  it('requires crew submission and warehouse confirmation before changing stock',()=>{
+    const s=useDistributionStore()
+    const route=s.planRoute({date:dayOffset(1),vehicleId:'v2',driverId:'u9',orderIds:['ord3']})
+    s.moveRoute(route.id,'loading');s.moveRoute(route.id,'active')
+    const stop=route.stops[0]!
+    s.finishStop(route.id,stop.id,'partial','Магазин принял только часть')
+    const p1=s.data.stocks.find(x=>x.warehouseId==='w1'&&x.productId==='p1')!
+    const p5=s.data.stocks.find(x=>x.warehouseId==='w1'&&x.productId==='p5')!
+    const original={onHand:p1.onHand,reserved:p1.reserved,p5:p5.reserved}
+    s.changeDemoUser('u9')
+    const rec=s.submitStopReconciliation(route.id,stop.id,[
+      {productId:'p1',orderedQty:16,acceptedQty:6,returnedQty:10,missingQty:0},
+      {productId:'p5',orderedQty:5,acceptedQty:0,returnedQty:5,missingQty:0},
+    ],'Магазин принял только часть')
+    expect(rec.status).toBe('submitted')
+    expect(p1.onHand).toBe(original.onHand)
+    expect(p1.reserved).toBe(original.reserved)
+    expect(()=>s.confirmStopReconciliation(rec.id)).toThrow('Недостаточно прав')
+    s.changeDemoUser('u10')
+    s.confirmStopReconciliation(rec.id)
+    expect(rec.status).toBe('confirmed')
+    expect(p1.onHand).toBe(original.onHand-6)
+    expect(p1.reserved).toBe(original.reserved-16)
+    expect(p5.reserved).toBe(original.p5-5)
+    expect(s.data.outletShipments.filter(x=>x.routeId===route.id&&x.productId==='p1')
+      .reduce((sum,x)=>sum+x.quantity,0)).toBe(6)
+    expect(()=>s.confirmStopReconciliation(rec.id)).toThrow('ожидающая подтверждения')
+  })
+  it('keeps missing stock reserved for investigation after warehouse confirmation',()=>{
+    const s=useDistributionStore()
+    const route=s.planRoute({date:dayOffset(1),vehicleId:'v2',driverId:'u9',orderIds:['ord3']})
+    s.moveRoute(route.id,'loading');s.moveRoute(route.id,'active')
+    s.finishStop(route.id,route.stops[0]!.id,'partial','Часть не принята')
+    const stock=s.data.stocks.find(x=>x.warehouseId==='w1'&&x.productId==='p1')!
+    const reserved=stock.reserved
+    const rec=s.submitStopReconciliation(route.id,route.stops[0]!.id,[
+      {productId:'p1',orderedQty:16,acceptedQty:6,returnedQty:9,missingQty:1},
+      {productId:'p5',orderedQty:5,acceptedQty:0,returnedQty:5,missingQty:0},
+    ],'Не нашли одну единицу')
+    s.confirmStopReconciliation(rec.id)
+    expect(stock.reserved).toBe(reserved-15)
+    expect(rec.lines.find(x=>x.productId==='p1')?.missingQty).toBe(1)
+  })
+  it('rejects invalid or duplicated reconciliation lines and unchanged refusal quantities',()=>{
+    const s=useDistributionStore()
+    const route=s.planRoute({date:dayOffset(1),vehicleId:'v2',driverId:'u9',orderIds:['ord3']})
+    s.moveRoute(route.id,'loading');s.moveRoute(route.id,'active')
+    s.finishStop(route.id,route.stops[0]!.id,'failed','Получатель отказался от доставки')
+    const lines=[
+      {productId:'p1',orderedQty:16,acceptedQty:0,returnedQty:16,missingQty:0},
+      {productId:'p5',orderedQty:5,acceptedQty:0,returnedQty:5,missingQty:0},
+    ]
+    expect(()=>s.submitStopReconciliation(route.id,route.stops[0]!.id,
+      [{...lines[0]!,acceptedQty:1,returnedQty:15},lines[1]!],'')).toThrow('При отказе')
+    expect(()=>s.submitStopReconciliation(route.id,route.stops[0]!.id,
+      [lines[0]!,{...lines[0]!}],'')).toThrow('повторная позиция')
+    const rec=s.submitStopReconciliation(route.id,route.stops[0]!.id,lines,'Полный отказ от доставки')
+    const reserved=s.data.stocks.find(x=>x.warehouseId==='w1'&&x.productId==='p1')!.reserved
+    const onHand=s.data.stocks.find(x=>x.warehouseId==='w1'&&x.productId==='p1')!.onHand
+    s.confirmStopReconciliation(rec.id)
+    expect(s.data.stocks.find(x=>x.warehouseId==='w1'&&x.productId==='p1')!.reserved).toBe(reserved-16)
+    expect(s.data.stocks.find(x=>x.warehouseId==='w1'&&x.productId==='p1')!.onHand).toBe(onHand)
+  })
+  it('keeps confirmation atomic when a reservation was changed during the trip',()=>{
+    const s=useDistributionStore()
+    const route=s.planRoute({date:dayOffset(1),vehicleId:'v2',driverId:'u9',orderIds:['ord3']})
+    s.moveRoute(route.id,'loading');s.moveRoute(route.id,'active')
+    s.finishStop(route.id,route.stops[0]!.id,'partial','Магазин принял часть')
+    const rec=s.submitStopReconciliation(route.id,route.stops[0]!.id,[
+      {productId:'p1',orderedQty:16,acceptedQty:6,returnedQty:10,missingQty:0},
+      {productId:'p5',orderedQty:5,acceptedQty:0,returnedQty:5,missingQty:0},
+    ],'Сверка по накладной')
+    const stock=s.data.stocks.find(x=>x.warehouseId==='w1'&&x.productId==='p1')!
+    stock.reserved=0
+    const beforeOnHand=stock.onHand
+    const beforeLots=s.data.stockBatches.filter(b=>b.productId==='p1').map(b=>b.remainingQty)
+    expect(()=>s.confirmStopReconciliation(rec.id)).toThrow('Недостаточно учётного остатка')
+    expect(rec.status).toBe('submitted')
+    expect(stock.onHand).toBe(beforeOnHand)
+    expect(s.data.stockBatches.filter(b=>b.productId==='p1').map(b=>b.remainingQty)).toEqual(beforeLots)
+  })
+  it('upgrades version five local data to empty reconciliation ledger without deleting customers',()=>{
+    const old=createDemoData()
+    old.version=5
+    old.customers[0]!.contactName='Исторический контакт'
+    delete (old as unknown as {returnReconciliations?:unknown}).returnReconciliations
+    const local=new Map([['itp-distribution-demo-v1',JSON.stringify(old)]])
+    vi.stubGlobal('localStorage',{
+      getItem:(key:string)=>local.get(key)??null,
+      setItem:(key:string,value:string)=>{local.set(key,value)},
+    })
+    const s=useDistributionStore()
+    s.initialize()
+    expect(s.data.version).toBe(6)
+    expect(s.data.returnReconciliations).toEqual([])
+    expect(s.data.customers[0]!.contactName).toBe('Исторический контакт')
+  })
+
 })

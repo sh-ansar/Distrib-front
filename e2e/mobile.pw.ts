@@ -3,7 +3,7 @@ const urls=[
   '/', '/companies', '/companies/c1', '/outlets', '/outlets/o1',
   '/visits', '/orders', '/debts', '/consignment', '/inventory',
   '/store-stock?outlet=o1','/sales-plans','/fleet','/control',
-  '/routes', '/routes/r1', '/documents', '/team', '/settings',
+  '/routes', '/routes/r1', '/delivery', '/returns', '/documents', '/team', '/settings',
 ]
 for(const width of [320,375,390,428,768]){
   test('no horizontal page scroll at '+width+'px', async({page})=>{
@@ -17,6 +17,15 @@ for(const width of [320,375,390,428,768]){
         html:document.documentElement.scrollWidth,
         body:document.body.scrollWidth,
       }))
+      if(sizes.html>sizes.viewport+1){
+        const overflowing=await page.evaluate(()=>[...document.querySelectorAll('main *')]
+          .map(el=>({el,box:el.getBoundingClientRect()}))
+          .filter(({box})=>box.width>0&&box.right>window.innerWidth+1&&box.left<window.innerWidth)
+          .slice(0,20)
+          .map(({el,box})=>({tag:el.tagName,klass:String(el.className).slice(0,80),
+            text:(el.textContent||'').trim().slice(0,55),left:Math.round(box.left),right:Math.round(box.right)})))
+        console.log('OVERFLOW DIAGNOSTIC '+url+' '+JSON.stringify(overflowing))
+      }
       expect(sizes.html,url+' document width').toBeLessThanOrEqual(sizes.viewport+1)
       expect(sizes.body,url+' body width').toBeLessThanOrEqual(sizes.viewport+1)
     }
@@ -96,5 +105,66 @@ test('control center honors driver visibility',async({page})=>{
   await expect(page.getByRole('heading',{name:'Центр контроля'})).toBeVisible()
   await expect(page.getByRole('combobox',{name:'Направление контроля'}).locator('option[value="finance"]')).toHaveCount(0)
   await expect(page.getByRole('combobox',{name:'Направление контроля'}).locator('option[value="warehouse"]')).toHaveCount(0)
-  await expect(page.locator('.mobile-bottom-nav a').first()).toContainText('Контроль')
+  await expect(page.locator('.mobile-bottom-nav a').first()).toContainText('Доставка')
+  await expect(page.locator('.mobile-bottom-nav a[href="/control"]')).toBeVisible()
+})
+
+test('driver marks arrival and failed delivery from phone without GPS',async({page})=>{
+  await page.setViewportSize({width:320,height:720})
+  await page.goto('/delivery')
+  await page.getByRole('button',{name:'Настройки тестового пользователя'}).click()
+  await page.locator('.account-popover select').selectOption('u8')
+  await expect(page.getByRole('heading',{name:'Моя доставка'})).toBeVisible()
+  await page.getByRole('button',{name:'Я прибыл'}).click()
+  await expect(page.getByRole('button',{name:'Результат доставки'})).toBeVisible()
+  await page.getByRole('button',{name:'Результат доставки'}).click()
+  const modal=page.getByRole('dialog')
+  await modal.getByRole('combobox',{name:'Итог доставки'}).selectOption('failed')
+  await modal.locator('textarea').fill('Магазин закрыт, необходимо перенести доставку')
+  await modal.getByRole('button',{name:'Сохранить итог'}).click()
+  await expect(page.getByText('Магазин закрыт, необходимо перенести доставку')).toBeVisible()
+  await page.goto('/control')
+  await expect(page.getByText('Отказ от доставки').first()).toBeVisible()
+})
+test('crew can attach document metadata to an individual stop',async({page})=>{
+  await page.setViewportSize({width:375,height:830})
+  await page.goto('/documents?stop=st2')
+  await page.getByRole('button',{name:'Настройки тестового пользователя'}).click()
+  await page.locator('.account-popover select').selectOption('u12')
+  await expect(page.locator('.account-popover')).toHaveCount(0)
+  await expect(page.getByText('Накладные выбранной остановки')).toBeVisible()
+  await page.getByRole('button',{name:'Новая накладная'}).click()
+  const modal=page.getByRole('dialog').first()
+  await expect(modal).toBeVisible()
+  await expect(modal.locator('select').first()).toHaveValue('stop')
+  await expect(modal.locator('select').nth(1)).toHaveValue('st2')
+  await modal.getByPlaceholder('Накладная №...').fill('Сверка передачи Р-001')
+  await modal.getByRole('button',{name:'Сохранить запись'}).click()
+  await expect(page.locator('.mobile-record-title').filter({hasText:'Сверка передачи Р-001'})).toBeVisible()
+})
+
+test('crew submits return and warehouse confirms accounting without double counting',async({page})=>{
+  await page.setViewportSize({width:375,height:820})
+  await page.goto('/delivery')
+  await page.getByRole('button',{name:'Настройки тестового пользователя'}).click()
+  await page.locator('.account-popover select').selectOption('u8')
+  await expect(page.locator('.account-popover')).toHaveCount(0)
+  await page.getByRole('button',{name:'Я прибыл'}).click()
+  await page.getByRole('button',{name:'Результат доставки'}).click()
+  const result=page.getByRole('dialog')
+  await result.getByRole('combobox',{name:'Итог доставки'}).selectOption('failed')
+  await result.locator('textarea').fill('Магазин отказался принимать заказ')
+  await result.getByRole('button',{name:'Сохранить итог'}).click()
+  await page.locator('.delivery-return-link').click()
+  await expect(page).toHaveURL(/\/returns\?stop=st2/)
+  await page.getByRole('button',{name:'Составить отчёт'}).click()
+  await expect(page.getByRole('heading',{name:'Сверка товаров'})).toBeVisible()
+  await page.getByRole('button',{name:'Направить на склад'}).click()
+  await expect(page.getByText('На складе').first()).toBeVisible()
+  await page.getByRole('button',{name:'Настройки тестового пользователя'}).click()
+  await page.locator('.account-popover select').selectOption('u10')
+  await expect(page.locator('.account-popover')).toHaveCount(0)
+  await page.getByRole('button',{name:'Подтвердить складом'}).click()
+  await expect(page.getByText('Подтверждено').first()).toBeVisible()
+  await expect(page.getByText('Возврат освобождён из резерва.')).toBeVisible()
 })

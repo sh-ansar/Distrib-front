@@ -16,9 +16,9 @@ const mobilePriority=computed<Section[]>(()=>{
   switch(store.currentRole){
     case 'sales':return ['control','visits','orders','storestock']
     case 'driver':
-    case 'forwarder':return ['control','routes','documents','dashboard']
-    case 'warehouse':return ['control','inventory','orders','dashboard']
-    case 'dispatcher':return ['control','routes','fleet','orders']
+    case 'forwarder':return ['deliveries','control','returns','documents']
+    case 'warehouse':return ['control','inventory','returns','orders']
+    case 'dispatcher':return ['control','deliveries','returns','routes']
     case 'accountant':return ['control','debts','companies','documents']
     case 'supervisor':return ['control','visits','companies','salesplans']
     case 'director':return ['control','routes','companies','debts']
@@ -30,7 +30,7 @@ const mobileItems=computed(()=>mobilePriority.value
   .filter((item):item is (typeof nav)[number]=>Boolean(item)).slice(0,4))
 const moreSelected=computed(()=>!!route.meta.section && !mobileItems.value.some(item=>item.section===route.meta.section))
 const shortLabels:Partial<Record<Section,string>>={
-  dashboard:'Обзор',control:'Контроль',companies:'Компании',outlets:'Магазины',visits:'Визиты',orders:'Заявки',
+  dashboard:'Обзор',control:'Контроль',deliveries:'Доставка',returns:'Возвраты',companies:'Компании',outlets:'Магазины',visits:'Визиты',orders:'Заявки',
   debts:'Долги',consignment:'Реализация',inventory:'Склад',storestock:'У клиентов',
   salesplans:'Планы',fleet:'Автопарк',routes:'Рейсы',documents:'Документы',team:'Команда',
   settings:'Настройки',
@@ -38,6 +38,8 @@ const shortLabels:Partial<Record<Section,string>>={
 const pageTitle=computed(()=>String(route.meta.title||'Обзор'))
 watch(()=>route.fullPath,()=>{mobileOpen.value=false;userDropdown.value=false})
 watch(()=>store.currentUserId,()=>{
+  userDropdown.value=false
+  mobileOpen.value=false
   if(!can(store.currentRole,(route.meta.section as Section)||'dashboard'))router.push('/')
 })
 function onKey(e:KeyboardEvent){
@@ -45,7 +47,11 @@ function onKey(e:KeyboardEvent){
 }
 onMounted(()=>window.addEventListener('keydown',onKey))
 onUnmounted(()=>window.removeEventListener('keydown',onKey))
-function switchUser(event:Event){store.changeDemoUser((event.target as HTMLSelectElement).value)}
+function switchUser(event:Event){
+  store.changeDemoUser((event.target as HTMLSelectElement).value)
+  userDropdown.value=false
+  mobileOpen.value=false
+}
 function navigateSearch(){
   const query=store.search.trim()
   if(!query)return

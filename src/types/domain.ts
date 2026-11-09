@@ -131,6 +131,26 @@ export interface WaybillSample {
   verified: boolean
 }
 
+export interface ReconciliationLine {
+  productId: string
+  orderedQty: number
+  acceptedQty: number
+  returnedQty: number
+  missingQty: number
+}
+export interface DeliveryReconciliation {
+  id: string
+  routeId: string
+  stopId: string
+  status: 'submitted' | 'confirmed'
+  lines: ReconciliationLine[]
+  notes: string
+  submittedAt: string
+  submittedBy: string
+  confirmedAt?: string
+  confirmedBy?: string
+}
+
 export interface Stock {
   warehouseId: string
   productId: string
@@ -206,6 +226,9 @@ export interface RouteStop {
   status: StopStatus
   notes: string
   completedAt?: string
+  arrivedAt?: string
+  arrivedBy?: string
+  receivedBy?: string
 }
 export interface DeliveryRoute {
   id: string
@@ -264,6 +287,7 @@ export interface DistributionData {
   outletShipments: OutletShipment[]
   outletStockChecks: OutletStockCheck[]
   salesPlans: SalesPlan[]
+  returnReconciliations: DeliveryReconciliation[]
   orders: Order[]
   debts: Debt[]
   consignments: Consignment[]

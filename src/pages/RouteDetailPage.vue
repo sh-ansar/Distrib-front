@@ -21,6 +21,7 @@ const forwarder=computed(()=>store.data.employees.find(e=>e.id===route.value?.fo
 const selectedStopId=ref('')
 const outcome=ref<Exclude<StopStatus,'pending'>>('delivered')
 const notes=ref('')
+const receivedBy=ref('')
 const error=ref('')
 const selectedStop=computed(()=>route.value?.stops.find(s=>s.id===selectedStopId.value))
 const sortedStops=computed(()=>[...(route.value?.stops||[])].sort((a,b)=>a.position-b.position))
@@ -35,10 +36,15 @@ function move(){
   try{if(route.value&&nextStatus.value){store.moveRoute(route.value.id,nextStatus.value);store.notify('Этап рейса изменён.')}}
   catch(e){store.notify(e instanceof Error?e.message:'Ошибка рейса','error')}
 }
-function openStop(id:string){selectedStopId.value=id;outcome.value='delivered';notes.value='';error.value=''}
+function openStop(id:string){selectedStopId.value=id;outcome.value='delivered';notes.value='';receivedBy.value='';error.value=''}
+function arrive(id:string){
+  try{
+    if(route.value){store.arriveStop(route.value.id,id);store.notify('Прибытие в торговую точку отмечено вручную.')}
+  }catch(e){store.notify(e instanceof Error?e.message:'Ошибка отметки прибытия.','error')}
+}
 function finish(){
   error.value=''
-  try{if(route.value && selectedStop.value){store.finishStop(route.value.id,selectedStop.value.id,outcome.value,notes.value);selectedStopId.value='';store.notify('Результат доставки сохранён.')}}
+  try{if(route.value && selectedStop.value){store.finishStop(route.value.id,selectedStop.value.id,outcome.value,notes.value,receivedBy.value);selectedStopId.value='';store.notify('Результат доставки сохранён.')}}
   catch(e){error.value=e instanceof Error?e.message:'Не удалось сохранить результат'}
 }
 function printPage(){window.print()}
@@ -52,6 +58,7 @@ function orderFor(id:string){return store.data.orders.find(o=>o.id===id)}
   <template v-else>
     <div class="detail-back"><router-link to="/routes"><AppIcon name="arrow-left" :size="17" /> Все рейсы</router-link></div>
     <PageTitle eyebrow="МАРШРУТНЫЙ ЛИСТ" :title="'Рейс '+route.number" :subtitle="'Дата доставки: '+displayDate(route.date)">
+      <router-link v-if="can(store.currentRole,'deliveries')" class="btn btn-secondary no-print" :to="'/delivery?route='+route.id"><AppIcon name="truck" :size="17" /> Экран доставки</router-link>
       <router-link class="btn btn-secondary no-print" :to="'/documents?route='+route.id">Накладные</router-link>
       <button class="btn btn-secondary no-print" @click="printPage"><AppIcon name="printer" :size="17" /> Печать</button>
       <button v-if="can(store.currentRole,'routes:edit')&&nextStatus" class="btn btn-primary no-print" :disabled="nextStatus==='completed'&&done<route.stops.length" @click="move"><AppIcon name="check" :size="17" /> {{nextLabel}}</button>
@@ -88,9 +95,16 @@ function orderFor(id:string){return store.data.orders.find(o=>o.id===id)}
               </div>
               <p v-if="store.data.outlets.find(o=>o.id===stop.outletId)?.accessInstructions" class="stop-instructions">{{store.data.outlets.find(o=>o.id===stop.outletId)?.accessInstructions}}</p>
               <div class="stop-order-list"><span v-for="id in stop.orderIds" :key="id" class="stop-order">{{orderFor(id)?.number}} · {{money(orderTotal(orderFor(id)||{items:[]}))}}</span></div>
-              <small v-if="stop.completedAt" class="stop-event-time">Отметка: {{eventTime(stop.completedAt)}}</small>
+              <small v-if="stop.arrivedAt" class="stop-event-time">Прибыл: {{eventTime(stop.arrivedAt)}}</small>
+              <small v-if="stop.completedAt" class="stop-event-time">Итог: {{eventTime(stop.completedAt)}}</small>
+              <small v-if="stop.receivedBy" class="stop-event-time">Получатель: {{stop.receivedBy}}</small>
               <p v-if="stop.notes" class="stop-notes">{{stop.notes}}</p>
-              <button v-if="route.status==='active'&&stop.status==='pending'&&can(store.currentRole,'routes:edit')" class="btn btn-secondary btn-sm no-print" type="button" @click="openStop(stop.id)"><AppIcon name="clipboard-check" :size="16" /> Отметить доставку</button>
+              <router-link v-if="(stop.status==='partial'||stop.status==='failed')&&can(store.currentRole,'returns')" class="text-link no-print" :to="'/returns?stop='+stop.id">Сверить возврат и расхождения →</router-link>
+              <div v-if="route.status==='active'&&stop.status==='pending'&&can(store.currentRole,'routes:edit')" class="stop-delivery-actions no-print">
+                <button v-if="!stop.arrivedAt" class="btn btn-secondary btn-sm" type="button" @click="arrive(stop.id)"><AppIcon name="map-pin" :size="16" /> Отметить прибытие</button>
+                <button v-if="stop.arrivedAt||!['driver','forwarder'].includes(store.currentRole)" class="btn btn-primary btn-sm" type="button" @click="openStop(stop.id)"><AppIcon name="clipboard-check" :size="16" /> Итог доставки</button>
+              </div>
+              <router-link v-if="can(store.currentRole,'documents')" class="text-link stop-doc-link no-print" :to="'/documents?stop='+stop.id">Накладные точки →</router-link>
             </div>
           </div>
         </div>
@@ -106,6 +120,7 @@ function orderFor(id:string){return store.data.orders.find(o=>o.id===id)}
       <form class="stack-lg" @submit.prevent="finish">
         <div v-if="selectedStop" class="money-summary"><span>Точка</span><strong>{{store.data.outlets.find(o=>o.id===selectedStop?.outletId)?.name}}</strong></div>
         <label class="field"><span>Результат *</span><select v-model="outcome"><option value="delivered">Доставлено полностью</option><option value="partial">Доставлено частично</option><option value="failed">Не доставлено / отказ</option></select></label>
+        <label v-if="outcome!=='failed'" class="field"><span>Кто принял груз</span><input v-model="receivedBy" maxlength="120" placeholder="Получатель (необязательно)" /></label>
         <label class="field"><span>{{outcome==='delivered'?'Комментарий':'Причина и детали *'}}</span><textarea v-model="notes" rows="3" :required="outcome!=='delivered'" placeholder="Например, магазин закрыт, часть заказа не принята..." /></label>
         <div class="inline-notice"><AppIcon name="info" :size="18" /> Статус «частично» не означает автоматической корректировки денежных сумм или остатков: нужна сверка с фактической накладной в 1С.</div>
         <div v-if="error" class="form-error" role="alert">{{error}}</div>

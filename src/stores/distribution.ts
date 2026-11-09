@@ -4,7 +4,7 @@ import { createDemoData } from '@/data/seed'
 import { companyProfile } from '@/utils/company'
 import { allocateFEFO, estimatedVolume, sellableQty } from '@/utils/expiry'
 import { batchesForStocks, sampleOutletChecks, sampleShipments, samplePlans } from '@/data/operationsSeed'
-import type { Activity, Customer, CustomerProfile, Debt, DeliveryRoute, DistributionData, DocumentRecord, Employee, OutletShipment, Order, OrderItem, OrderStatus, Outlet, Role, RouteStatus, StopStatus, Visit, VisitStatus, StockBatch, SalesPlan, WaybillSample, Vehicle } from '@/types/domain'
+import type { Activity, Customer, CustomerProfile, Debt, DeliveryRoute, DistributionData, DocumentRecord, Employee, OutletShipment, Order, OrderItem, OrderStatus, Outlet, Role, RouteStatus, StopStatus, Visit, VisitStatus, StockBatch, SalesPlan, WaybillSample, Vehicle, DeliveryReconciliation, ReconciliationLine } from '@/types/domain'
 import { canTransitionOrder, consignmentBalance, debtBalance, isoDay, orderTotal, orderWeight, uid } from '@/utils/domain'
 
 const STORAGE_KEY = 'itp-distribution-demo-v1'
@@ -20,11 +20,12 @@ function clone<T>(value: T): T { return JSON.parse(JSON.stringify(value)) as T }
 function validDemo(data: unknown): data is DistributionData {
   if (!data || typeof data !== 'object') return false
   const candidate = data as Record<string, unknown>
-  return (candidate.version === 1 || candidate.version === 2 || candidate.version === 3 || candidate.version === 4 || candidate.version === 5) && [
+  return (candidate.version === 1 || candidate.version === 2 || candidate.version === 3 || candidate.version === 4 || candidate.version === 5 || candidate.version === 6) && [
     'customers','outlets','products','warehouses','stocks','orders','debts','consignments',
     'employees','vehicles','routes','documents','activities',
   ].every(key => Array.isArray(candidate[key])) && (candidate.version === 1 || Array.isArray(candidate.visits)) &&
-    (candidate.version !== 5 || ['stockBatches','outletShipments','outletStockChecks','salesPlans'].every(key=>Array.isArray(candidate[key])))
+    ((candidate.version !== 5 && candidate.version !== 6) || ['stockBatches','outletShipments','outletStockChecks','salesPlans'].every(key=>Array.isArray(candidate[key]))) &&
+    (candidate.version !== 6 || Array.isArray(candidate.returnReconciliations))
 }
 function cleanNumber(value: number): boolean { return Number.isFinite(value) && value >= 0 }
 
@@ -95,12 +96,13 @@ export const useDistributionStore = defineStore('distribution', {
             const customerIds = new Set(parsed.customers.map(c=>c.id))
             const outletIds = new Set(parsed.outlets.map(o=>o.id))
             this.data = {
-              ...parsed, version: 5,
+              ...parsed, version: 6,
               visits: Array.isArray(parsed.visits) ? parsed.visits : [],
               stockBatches: Array.isArray(parsed.stockBatches) ? parsed.stockBatches : batchesForStocks(parsed.stocks),
               outletShipments: Array.isArray(parsed.outletShipments) ? parsed.outletShipments : sampleShipments(),
               outletStockChecks: Array.isArray(parsed.outletStockChecks) ? parsed.outletStockChecks : sampleOutletChecks(),
               salesPlans: Array.isArray(parsed.salesPlans) ? parsed.salesPlans : samplePlans(),
+              returnReconciliations:Array.isArray(parsed.returnReconciliations)?parsed.returnReconciliations:[],
               customers: [
                 ...parsed.customers.map(c=>({...c,profile:companyProfile(c.profile ?? sampleCustomers.get(c.id)?.profile)})),
                 ...enriched.customers.filter(c=>!customerIds.has(c.id)),
@@ -402,12 +404,30 @@ export const useDistributionStore = defineStore('distribution', {
       this.log('route',routeId,'status','Рейс: '+to)
       this.persist()
     },
-    finishStop(routeId:string,stopId:string,status:Exclude<StopStatus,'pending'>,notes:string) {
+    arriveStop(routeId:string,stopId:string){
+      this.require('routes:edit')
+      const route=this.visibleRoutes.find(r=>r.id===routeId)
+      invariant(route,'Рейс недоступен.')
+      invariant(route.status==='active','Прибытие можно отметить только в рейсе «В пути».')
+      const stop=route.stops.find(s=>s.id===stopId)
+      invariant(stop?.status==='pending','Точка уже обработана или недоступна.')
+      invariant(!stop.arrivedAt,'Прибытие уже отмечено.')
+      stop.arrivedAt=new Date().toISOString()
+      stop.arrivedBy=this.currentUserId
+      this.log('stop',stopId,'arrival','Отмечено прибытие без GPS-подтверждения')
+      this.persist()
+      return stop
+    },
+    finishStop(routeId:string,stopId:string,status:Exclude<StopStatus,'pending'>,notes:string,receivedBy='') {
       this.require('routes:edit')
       const route=this.visibleRoutes.find(r=>r.id===routeId)
       invariant(route?.status==='active','Рейс должен быть в пути.')
       const stop=route.stops.find(s=>s.id===stopId)
       invariant(stop?.status==='pending','Точка уже обработана.')
+      if(this.currentRole==='driver'||this.currentRole==='forwarder'){
+        invariant(!!stop.arrivedAt,'Сначала отметьте прибытие в магазин.')
+      }
+      invariant(receivedBy.length<=120,'Имя получателя слишком длинное.')
       invariant(status==='delivered'||notes.trim().length>=5,'Для отказа или частичной доставки укажите причину.')
       const orders=stop.orderIds.map(id=>this.data.orders.find(o=>o.id===id))
       invariant(orders.every(o=>o?.status==='in_route'),'В остановке есть недоступные для доставки заявки.')
@@ -453,10 +473,126 @@ export const useDistributionStore = defineStore('distribution', {
         // Partial/failed delivery leaves reservation untouched until the warehouse reconciles returns.
       }
       stop.status=status
+      stop.receivedBy=status==='failed'?'':receivedBy.trim()
       stop.notes=notes.trim()
       stop.completedAt=new Date().toISOString()
       this.log('stop',stopId,'status','Доставка: '+status+(notes ? ' · '+notes:''))
       this.persist()
+    },
+
+    submitStopReconciliation(routeId:string,stopId:string,lines:ReconciliationLine[],notes:string):DeliveryReconciliation {
+      this.require('routes:edit')
+      const route=this.visibleRoutes.find(r=>r.id===routeId)
+      invariant(route,'Рейс недоступен.')
+      const stop=route.stops.find(x=>x.id===stopId)
+      invariant(stop && (stop.status==='partial'||stop.status==='failed'),'Сверка разрешена после частичной доставки или отказа.')
+      const expected=new Map<string,number>()
+      for(const id of stop.orderIds){
+        const order=this.data.orders.find(o=>o.id===id)
+        invariant(order,'Заявка остановки не найдена.')
+        for(const item of order.items)expected.set(item.productId,(expected.get(item.productId)??0)+item.quantity)
+      }
+      invariant(lines.length===expected.size&&lines.length>0,'Укажите все товарные позиции остановки.')
+      const visited=new Set<string>()
+      let acceptedTotal=0
+      let total=0
+      const cleanLines:ReconciliationLine[]=[]
+      for(const line of lines){
+        const expectedQty=expected.get(line.productId)
+        invariant(expectedQty!==undefined&&!visited.has(line.productId),'Обнаружена неизвестная или повторная позиция.')
+        visited.add(line.productId)
+        invariant(line.orderedQty===expectedQty,'Количество по заявке изменилось — повторите сверку.')
+        invariant([line.acceptedQty,line.returnedQty,line.missingQty].every(v=>Number.isInteger(v)&&v>=0),'Все количества должны быть целыми неотрицательными.')
+        invariant(line.acceptedQty+line.returnedQty+line.missingQty===expectedQty,'Количество принято/возвращено/недостача должно совпадать с заявкой.')
+        acceptedTotal+=line.acceptedQty
+        total+=expectedQty
+        cleanLines.push({
+          productId:line.productId,orderedQty:expectedQty,acceptedQty:line.acceptedQty,
+          returnedQty:line.returnedQty,missingQty:line.missingQty,
+        })
+      }
+      if(stop.status==='failed')invariant(acceptedTotal===0,'При отказе нельзя указывать принятый товар.')
+      if(stop.status==='partial')invariant(acceptedTotal>0&&acceptedTotal<total,'При частичной доставке требуется принятая и непринятая часть.')
+      invariant(notes.trim().length<=1500,'Комментарий сверки слишком длинный.')
+      const existing=this.data.returnReconciliations.find(r=>r.stopId===stopId)
+      invariant(!existing||existing.status!=='confirmed','Сверка уже подтверждена складом.')
+      const item:DeliveryReconciliation={
+        id:existing?.id||uid('recon'),routeId,stopId,status:'submitted',lines:cleanLines,
+        notes:notes.trim(),submittedAt:new Date().toISOString(),submittedBy:this.currentUserId,
+      }
+      if(existing)Object.assign(existing,item)
+      else this.data.returnReconciliations.unshift(item)
+      this.log('stop',stopId,'reconciliation','Передана сверка возврата на подтверждение складу')
+      this.persist()
+      return existing||item
+    },
+    confirmStopReconciliation(reconciliationId:string):DeliveryReconciliation {
+      this.require('inventory:edit')
+      const record=this.data.returnReconciliations.find(r=>r.id===reconciliationId)
+      invariant(record?.status==='submitted','Доступна только сверка, ожидающая подтверждения.')
+      const route=this.data.routes.find(r=>r.id===record.routeId)
+      const stop=route?.stops.find(s=>s.id===record.stopId)
+      invariant(stop&&(stop.status==='partial'||stop.status==='failed'),'Исходная остановка недоступна.')
+      const orders=stop.orderIds.map(id=>this.data.orders.find(o=>o.id===id))
+      invariant(orders.every(Boolean),'Найдены не все заявки остановки.')
+      const expected=new Map<string,number>()
+      for(const order of orders){
+        for(const item of order!.items)expected.set(item.productId,(expected.get(item.productId)??0)+item.quantity)
+      }
+      invariant(record.lines.length===expected.size,'Изменился состав товарных позиций.')
+      const byProduct=new Map(record.lines.map(line=>[line.productId,line]))
+      invariant(byProduct.size===expected.size,'Повторные товарные позиции.')
+      for(const [productId,qty] of expected){
+        const line=byProduct.get(productId)
+        invariant(line&&line.orderedQty===qty&&line.acceptedQty+line.returnedQty+line.missingQty===qty,'Требуется повторная сверка заявки.')
+        const stock=this.data.stocks.find(s=>s.productId===productId&&s.warehouseId==='w1')
+        invariant(stock&&stock.onHand>=line.acceptedQty&&stock.reserved>=line.acceptedQty+line.returnedQty,
+          'Недостаточно учётного остатка или резерва. Передайте вопрос на разбор склада.')
+      }
+      // Build all FEFO allocations on a draft. Nothing is changed if any item fails.
+      const draft=this.data.stockBatches.map(batch=>({...batch}))
+      const remaining=new Map(record.lines.map(line=>[line.productId,line.acceptedQty]))
+      const shipments:OutletShipment[]=[]
+      for(const order of orders){
+        for(const item of order!.items){
+          const take=Math.min(item.quantity,remaining.get(item.productId)??0)
+          if(take<=0)continue
+          for(const allocation of allocateFEFO(draft,item.productId,'w1',take)){
+            const batch=draft.find(b=>b.id===allocation.batchId)!
+            batch.remainingQty-=allocation.quantity
+            shipments.push({
+              id:uid('ship'),outletId:order!.outletId,productId:item.productId,
+              batchId:batch.id,batchNumber:batch.batchNumber,expiryDate:batch.expiryDate,
+              quantity:allocation.quantity,orderId:order!.id,routeId:record.routeId,
+              deliveredAt:stop.completedAt||new Date().toISOString(),
+            })
+          }
+          remaining.set(item.productId,(remaining.get(item.productId)??0)-take)
+        }
+      }
+      invariant([...remaining.values()].every(qty=>qty===0),'Не все принятые единицы распределены.')
+      const now=new Date().toISOString()
+      for(const line of record.lines){
+        const stock=this.data.stocks.find(s=>s.productId===line.productId&&s.warehouseId==='w1')!
+        // Original model reserves, but does NOT decrement onHand at dispatch:
+        // returned units only release reservation; accepted units reduce physical stock.
+        // Missing units retain reservation for a separate loss/claim investigation.
+        stock.onHand-=line.acceptedQty
+        stock.reserved-=line.acceptedQty+line.returnedQty
+        stock.updatedAt=now
+      }
+      for(const draftBatch of draft){
+        this.data.stockBatches.find(b=>b.id===draftBatch.id)!.remainingQty=draftBatch.remainingQty
+      }
+      this.data.outletShipments.push(...shipments)
+      record.status='confirmed'
+      record.confirmedAt=now
+      record.confirmedBy=this.currentUserId
+      const missing=record.lines.reduce((sum,line)=>sum+line.missingQty,0)
+      this.log('stop',record.stopId,'reconciliation',
+        'Склад подтвердил принятие и возврат'+(missing?' · недостача '+missing+' ед. требует расследования':''))
+      this.persist()
+      return record
     },
     addDocumentMetadata(entityType:DocumentRecord['entityType'],entityId:string,filename:string,mimeType:string,size:number) {
       this.require('documents:edit')

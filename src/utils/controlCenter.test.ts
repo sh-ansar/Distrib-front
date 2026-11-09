@@ -89,4 +89,23 @@ describe('operational control center',()=>{
     route.status='completed'
     expect(alerts().some(x=>x.id==='route-late:'+route.id)).toBe(false)
   })
+  it('flags a manually arrived stop until delivery is recorded',()=>{
+    const s=useDistributionStore()
+    const r=s.data.routes[0]!
+    const stop=r.stops.find(x=>x.status==='pending')!
+    stop.arrivedAt=new Date().toISOString()
+    expect(alerts().some(x=>x.id==='arrival:'+stop.id)).toBe(true)
+    stop.status='failed';stop.notes='Магазин закрыт'
+    expect(alerts().some(x=>x.id==='arrival:'+stop.id)).toBe(false)
+  })
+  it('shows missing stop waybill record but clears it when metadata is attached',()=>{
+    const s=useDistributionStore()
+    const r=s.data.routes[0]!
+    const stop=r.stops.find(x=>x.status==='delivered')!
+    const id='missing-waybill:'+stop.id
+    expect(alerts().some(x=>x.id===id)).toBe(true)
+    s.addDocumentMetadata('stop',stop.id,'Бланк накладной, оригинал не хранится','image/jpeg',0)
+    expect(alerts().some(x=>x.id===id)).toBe(false)
+  })
+
 })
