@@ -17,6 +17,15 @@ for(const width of [320,375,390,428,768]){
         html:document.documentElement.scrollWidth,
         body:document.body.scrollWidth,
       }))
+      if(sizes.html>sizes.viewport+1){
+        const overflowing=await page.evaluate(()=>[...document.querySelectorAll('main *')]
+          .map(el=>({el,box:el.getBoundingClientRect()}))
+          .filter(({box})=>box.width>0&&box.right>window.innerWidth+1&&box.left<window.innerWidth)
+          .slice(0,20)
+          .map(({el,box})=>({tag:el.tagName,klass:String(el.className).slice(0,80),
+            text:(el.textContent||'').trim().slice(0,55),left:Math.round(box.left),right:Math.round(box.right)})))
+        console.log('OVERFLOW DIAGNOSTIC '+url+' '+JSON.stringify(overflowing))
+      }
       expect(sizes.html,url+' document width').toBeLessThanOrEqual(sizes.viewport+1)
       expect(sizes.body,url+' body width').toBeLessThanOrEqual(sizes.viewport+1)
     }
@@ -122,12 +131,18 @@ test('crew can attach document metadata to an individual stop',async({page})=>{
   await page.goto('/documents?stop=st2')
   await page.getByRole('button',{name:'Настройки тестового пользователя'}).click()
   await page.locator('.account-popover select').selectOption('u12')
+  await expect(page.locator('.account-popover')).toHaveCount(0)
   await expect(page.getByText('Накладные выбранной остановки')).toBeVisible()
+  console.log('[DOC] role switched, opening entry modal')
   await page.getByRole('button',{name:'Новая накладная'}).click()
   const modal=page.getByRole('dialog').first()
+  await expect(modal).toBeVisible()
+  console.log('[DOC] entry modal opened')
   await expect(modal.locator('select').first()).toHaveValue('stop')
   await expect(modal.locator('select').nth(1)).toHaveValue('st2')
+  console.log('[DOC] stop bound')
   await modal.getByPlaceholder('Накладная №...').fill('Сверка передачи Р-001')
+  console.log('[DOC] submitting metadata')
   await modal.getByRole('button',{name:'Сохранить запись'}).click()
   await expect(page.getByText('Сверка передачи Р-001').first()).toBeVisible()
 })
@@ -137,6 +152,7 @@ test('crew submits return and warehouse confirms accounting without double count
   await page.goto('/delivery')
   await page.getByRole('button',{name:'Настройки тестового пользователя'}).click()
   await page.locator('.account-popover select').selectOption('u8')
+  await expect(page.locator('.account-popover')).toHaveCount(0)
   await page.getByRole('button',{name:'Я прибыл'}).click()
   await page.getByRole('button',{name:'Результат доставки'}).click()
   const result=page.getByRole('dialog')
@@ -147,10 +163,13 @@ test('crew submits return and warehouse confirms accounting without double count
   await expect(page).toHaveURL(/\/returns\?stop=st2/)
   await page.getByRole('button',{name:'Составить отчёт'}).click()
   await expect(page.getByRole('heading',{name:'Сверка товаров'})).toBeVisible()
+  console.log('[RETURN] submitted crew reconciliation')
   await page.getByRole('button',{name:'Направить на склад'}).click()
   await expect(page.getByText('На складе').first()).toBeVisible()
   await page.getByRole('button',{name:'Настройки тестового пользователя'}).click()
   await page.locator('.account-popover select').selectOption('u10')
+  await expect(page.locator('.account-popover')).toHaveCount(0)
+  console.log('[RETURN] warehouse confirming')
   await page.getByRole('button',{name:'Подтвердить складом'}).click()
   await expect(page.getByText('Подтверждено').first()).toBeVisible()
   await expect(page.getByText('Возврат освобождён из резерва.')).toBeVisible()

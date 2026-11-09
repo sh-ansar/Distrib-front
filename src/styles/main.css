@@ -1241,3 +1241,20 @@ a:hover,.text-link:hover{color:#1c4cae}
   .returns-input-fields input{font-size:16px}
 }
 @media(max-width:360px){.returns-metrics>div{flex-wrap:wrap}.returns-input-fields{grid-template-columns:minmax(0,1fr)}}
+
+
+/* Toasts must never block delivery confirmation controls underneath. */
+.toast{pointer-events:none}
+.toast>.icon-button{pointer-events:auto}
+@media(max-width:790px){
+  .toast{bottom:calc(80px + env(safe-area-inset-bottom));right:10px;max-width:calc(100vw - 20px)}
+}
+@media(max-width:420px){
+  .route-head-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .route-detail-grid .stop-head{flex-wrap:wrap;gap:7px}
+  .route-detail-grid .stop-head h3{min-width:0;overflow-wrap:anywhere}
+  .route-detail-grid .stop-content{min-width:0;max-width:calc(100% - 45px);flex:1 1 auto}
+  .route-detail-grid .stop-address,.route-detail-grid .stop-order-list{overflow-wrap:anywhere}
+  .page-title-actions .btn{white-space:normal;overflow-wrap:anywhere;text-align:center;padding-inline:8px;min-width:0;max-width:100%}
+  .page-title-wrap,.page-title-wrap>div{min-width:0;max-width:100%;box-sizing:border-box}
+}
