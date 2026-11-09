@@ -11,6 +11,7 @@ for(const width of [320,375,390,428,768]){
     for(const url of urls){
       await page.goto(url)
       await expect(page.locator('main h1').first(),url).toBeVisible()
+      expect(new URL(page.url()).pathname,'actual route for '+url).toBe(url.split('?')[0])
       const sizes=await page.evaluate(()=>({
         viewport:window.innerWidth,
         html:document.documentElement.scrollWidth,

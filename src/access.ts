@@ -35,6 +35,7 @@ export const nav: Array<{section:Section,label:string,icon:string,path:string,gr
   {section:'debts',label:'Дебиторка',icon:'wallet',path:'/debts',group:'main'},
   {section:'consignment',label:'Под реализацию',icon:'package-check',path:'/consignment',group:'main'},
   {section:'inventory',label:'Партии и сроки',icon:'warehouse',path:'/inventory',group:'operations'},
+  {section:'storestock',label:'Товар у магазинов',icon:'store',path:'/store-stock',group:'operations'},
   {section:'salesplans',label:'Планы продаж',icon:'target',path:'/sales-plans',group:'main'},
   {section:'fleet',label:'Автопарк',icon:'truck',path:'/fleet',group:'operations'},
   {section:'routes',label:'Рейсы и доставка',icon:'truck',path:'/routes',group:'operations'},
