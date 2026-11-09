@@ -16,6 +16,12 @@ const openOrders=computed(()=>store.visibleOrders.filter(o=>!['delivered','cance
 const shipments=computed(()=>store.visibleOrders.filter(o=>o.deliveryDate===dayOffset(0) && ['ready','in_route','delivered'].includes(o.status)))
 const recentOrders=computed(()=>[...store.visibleOrders].sort((a,b)=>b.createdAt.localeCompare(a.createdAt)).slice(0,6))
 const routesToday=computed(()=>store.visibleRoutes.filter(r=>r.date===dayOffset(0)))
+const todayVisits=computed(()=>store.visibleVisits.filter(v=>v.plannedDate===dayOffset(0)))
+const visitsToDo=computed(()=>todayVisits.value.filter(v=>v.status==='planned'||v.status==='in_progress'))
+const incidents=computed(()=>store.visibleRoutes.flatMap(r=>r.stops.filter(s=>s.status==='partial'||s.status==='failed').map(s=>({
+  id:s.id,routeId:r.id,number:r.number,outlet:store.data.outlets.find(o=>o.id===s.outletId)?.name||'Точка',
+  reason:s.notes,status:s.status,
+}))))
 const riskCustomers=computed(()=>store.visibleCustomers.map(c=>{
   const debts=store.visibleDebts.filter(d=>d.customerId===c.id)
   return {...c,balance:debts.reduce((s,d)=>s+debtBalance(d),0),
@@ -38,6 +44,7 @@ const todayLabel=computed(()=>new Intl.DateTimeFormat('ru-RU',{day:'numeric',mon
     <MetricCard label="Активные заявки" :value="qty(openOrders.length)" icon="clipboard-list" hint="Ожидают выполнения" to="/orders" />
     <MetricCard v-if="can(store.currentRole,'debts')" label="Дебиторская задолженность" :value="money(outstanding)" icon="wallet" hint="Открытые расчёты · демо" to="/debts" />
     <MetricCard v-if="can(store.currentRole,'debts')" label="Просроченные платежи" :value="money(overdue)" icon="alert-triangle" tone="danger" hint="Требуют внимания" to="/debts" />
+    <MetricCard v-if="can(store.currentRole,'visits')" label="Визиты сегодня" :value="qty(todayVisits.length)" icon="map-pin" :hint="visitsToDo.length+' требуют выполнения'" to="/visits" />
     <MetricCard v-if="can(store.currentRole,'routes')" label="Рейсы сегодня" :value="qty(routesToday.length)" icon="truck" :hint="routesToday.filter(r=>r.status==='active').length+' в пути'" to="/routes" />
     <MetricCard v-else label="Доставки сегодня" :value="qty(shipments.length)" icon="truck" hint="По доступным заявкам" />
   </div>
@@ -66,6 +73,19 @@ const todayLabel=computed(()=>new Intl.DateTimeFormat('ru-RU',{day:'numeric',mon
       </SectionCard>
     </div>
     <div class="dashboard-aside">
+      <SectionCard v-if="can(store.currentRole,'visits')" title="Посещения сегодня" description="Задачи торговых представителей">
+        <div class="visits-summary-row"><span>Всего визитов</span><strong>{{todayVisits.length}}</strong></div>
+        <div class="visits-summary-row"><span>Выполнены</span><strong>{{todayVisits.filter(v=>v.status==='completed').length}}</strong></div>
+        <div class="visits-summary-row"><span>Ожидают посещения</span><strong>{{visitsToDo.length}}</strong></div>
+        <RouterLink class="text-link" to="/visits">План и результаты <AppIcon name="arrow-right" :size="15" /></RouterLink>
+      </SectionCard>
+      <SectionCard v-if="incidents.length&&can(store.currentRole,'routes')" title="Проблемные доставки" description="Отказы и частичные поставки требуют сверки">
+        <RouterLink v-for="incident in incidents.slice(0,5)" :key="incident.id" class="risk-row" :to="'/routes/'+incident.routeId">
+          <span class="risk-avatar"><AppIcon name="alert-triangle" :size="17" /></span>
+          <span class="risk-copy"><strong>{{incident.outlet}} · {{incident.number}}</strong><small>{{incident.reason||'Требуется сверка'}}</small></span>
+          <AppIcon name="chevron-right" :size="17" />
+        </RouterLink>
+      </SectionCard>
       <SectionCard title="На контроле" description="Просроченные оплаты и блокировки" v-if="can(store.currentRole,'debts')">
         <div v-if="!riskCustomers.length" class="small muted">Нет просроченных задолженностей.</div>
         <RouterLink v-for="customer in riskCustomers" :key="customer.id" class="risk-row" :to="'/outlets?customer='+customer.id">

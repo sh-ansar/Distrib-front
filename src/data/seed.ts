@@ -51,26 +51,7 @@ export function createDemoData(): DistributionData {
       notes:'',createdBy:['u4','u5','u6'][index%3],origin:'sales',
     }
   }
-  return {
-    version:1,
-    customers:customers.map(([id,legalName,bin,contactName,status,creditLimit])=>({
-      id,legalName,bin,contactName,status,creditLimit,termsDays:14,
-      phone:'+7 700 000 00 '+id.slice(1).padStart(2,'0'),
-      email:'demo-'+id+'@example.invalid',createdAt:dayOffset(-150),
-    })),
-    outlets:outlets.map(([id,customerId,name,address,district,repId])=>({
-      id,customerId,name,address:'Астана, '+address,district,contactName:'Контакт магазина',
-      phone:'+7 700 000 11 '+id.slice(1).padStart(2,'0'),repId,tags:[],
-      notes:'',active:true,createdAt:dayOffset(-130),
-    })),
-    products:products.map(([id,sku,name,category,unit,price,weightKg])=>({id,sku,name,category,unit,price,weightKg,active:true})),
-    warehouses:[{id:'w1',name:'Основной склад',address:'Астана · Логистическая зона'},
-      {id:'w2',name:'Дополнительный склад',address:'Астана · Южный сектор'}],
-    stocks:products.flatMap(([id],i)=>[
-      {warehouseId:'w1',productId:id,onHand:60+i*19,reserved:5+(i%5)*2,updatedAt:now},
-      {warehouseId:'w2',productId:id,onHand:20+i*4,reserved:i%4,updatedAt:now},
-    ]),
-    orders:[
+  const initialOrders: Order[] = [
       makeOrder(1,'o1','new',1,[['p1',12],['p6',20],['p11',3]]),
       makeOrder(2,'o3','confirmed',1,[['p3',6],['p7',12]]),
       makeOrder(3,'o2','ready',1,[['p1',16],['p5',5]]),
@@ -85,7 +66,31 @@ export function createDemoData(): DistributionData {
       makeOrder(12,'o7','partial',-3,[['p8',3],['p5',10]]),
       makeOrder(13,'o3','delivered',-3,[['p11',5],['p1',10]]),
       makeOrder(14,'o6','cancelled',-3,[['p3',4]]),
-    ],
+
+  ]
+  const preallocated = (productId:string): number => initialOrders
+    .filter(o=>['confirmed','picking','ready','in_route'].includes(o.status))
+    .reduce((sum,o)=>sum+o.items.filter(i=>i.productId===productId).reduce((q,i)=>q+i.quantity,0),0)
+  return {
+    version:2,
+    customers:customers.map(([id,legalName,bin,contactName,status,creditLimit])=>({
+      id,legalName,bin,contactName,status,creditLimit,termsDays:14,
+      phone:'+7 700 000 00 '+id.slice(1).padStart(2,'0'),
+      email:'demo-'+id+'@example.invalid',createdAt:dayOffset(-150),
+    })),
+    outlets:outlets.map(([id,customerId,name,address,district,repId])=>({
+      id,customerId,name,address:'Астана, '+address,district,contactName:'Контакт магазина',
+      phone:'+7 700 000 11 '+id.slice(1).padStart(2,'0'),repId,tags:[],
+      notes:'',active:true,createdAt:dayOffset(-130),
+    })),
+    products:products.map(([id,sku,name,category,unit,price,weightKg])=>({id,sku,name,category,unit,price,weightKg,active:true})),
+    warehouses:[{id:'w1',name:'Основной склад',address:'Астана · Логистическая зона'},
+      {id:'w2',name:'Дополнительный склад',address:'Астана · Южный сектор'}],
+    stocks:products.flatMap(([id],i)=>[
+      {warehouseId:'w1',productId:id,onHand:60+i*19,reserved:5+(i%5)*2+preallocated(id),updatedAt:now},
+      {warehouseId:'w2',productId:id,onHand:20+i*4,reserved:i%4,updatedAt:now},
+    ]),
+    orders:initialOrders,
     debts:[
       {id:'d1',customerId:'c1',invoice:'РТ-000182',issuedAt:dayOffset(-24),dueAt:dayOffset(-10),amount:560000,paid:200000},
       {id:'d2',customerId:'c1',invoice:'РТ-000202',issuedAt:dayOffset(-8),dueAt:dayOffset(6),amount:245000,paid:0},
