@@ -29,7 +29,7 @@ describe('directory and company search', () => {
   })
   it('keeps public examples separate from synthetic customers and requires source links',()=>{
     const data=createDemoData()
-    expect(publicStoreLeads.length).toBe(34)
+    expect(publicStoreLeads.length).toBe(35)
     expect(new Set(publicStoreLeads.map(s=>s.id)).size).toBe(publicStoreLeads.length)
     expect(publicStoreLeads.every(s=>s.sourceUrl.startsWith('https://')&&s.address.startsWith('Астана, '))).toBe(true)
     expect(publicStoreLeads.every(s=>!data.outlets.some(o=>o.id===s.id))).toBe(true)
