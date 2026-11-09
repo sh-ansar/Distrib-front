@@ -32,13 +32,13 @@ const progress=computed(()=>route.value?routeProgress(route.value):null)
 const nextStatus=computed<RouteStatus|null>(()=>route.value?.status==='planned'?'loading':route.value?.status==='loading'?'active':route.value?.status==='active'?'completed':null)
 const nextLabel=computed(()=>nextStatus.value==='loading'?'Начать загрузку':nextStatus.value==='active'?'Выехать в рейс':nextStatus.value==='completed'?'Завершить рейс':'')
 function move(){
-  try{if(route.value&&nextStatus.value){store.moveRoute(route.value.id,nextStatus.value);store.notify('Этап рейса изменён (демо).')}}
+  try{if(route.value&&nextStatus.value){store.moveRoute(route.value.id,nextStatus.value);store.notify('Этап рейса изменён.')}}
   catch(e){store.notify(e instanceof Error?e.message:'Ошибка рейса','error')}
 }
 function openStop(id:string){selectedStopId.value=id;outcome.value='delivered';notes.value='';error.value=''}
 function finish(){
   error.value=''
-  try{if(route.value && selectedStop.value){store.finishStop(route.value.id,selectedStop.value.id,outcome.value,notes.value);selectedStopId.value='';store.notify('Результат доставки сохранён (демо).')}}
+  try{if(route.value && selectedStop.value){store.finishStop(route.value.id,selectedStop.value.id,outcome.value,notes.value);selectedStopId.value='';store.notify('Результат доставки сохранён.')}}
   catch(e){error.value=e instanceof Error?e.message:'Не удалось сохранить результат'}
 }
 function printPage(){window.print()}
@@ -99,7 +99,7 @@ function orderFor(id:string){return store.data.orders.find(o=>o.id===id)}
         <SectionCard title="Информация о грузе" description="Заявки, назначенные на рейс">
           <div v-for="order in routeOrders" :key="order.id" class="order-brief"><div><strong>{{order.number}}</strong><small>{{store.data.outlets.find(o=>o.id===order.outletId)?.name}}</small></div><strong>{{money(orderTotal(order))}}</strong></div>
         </SectionCard>
-        <div class="inline-notice warn-notice"><AppIcon name="file-image" :size="19" /><div><strong>Накладные и подтверждения</strong><p>Сейчас отметки доставки демонстрационные. Фото подписанных накладных будут загружаться после подключения защищённого хранилища. Отказы и частичные поставки требуют сверки с 1С.</p></div></div>
+        <div class="inline-notice warn-notice"><AppIcon name="file-image" :size="19" /><div><strong>Накладные и подтверждения</strong><p>Сейчас отметки доставки тестовые. Фото подписанных накладных будут загружаться после подключения защищённого хранилища. Отказы и частичные поставки требуют сверки с 1С.</p></div></div>
       </div>
     </div>
     <ModalShell :open="!!selectedStop" title="Результат доставки" subtitle="Выберите исход посещения точки" @close="selectedStopId=''">
@@ -109,7 +109,7 @@ function orderFor(id:string){return store.data.orders.find(o=>o.id===id)}
         <label class="field"><span>{{outcome==='delivered'?'Комментарий':'Причина и детали *'}}</span><textarea v-model="notes" rows="3" :required="outcome!=='delivered'" placeholder="Например, магазин закрыт, часть заказа не принята..." /></label>
         <div class="inline-notice"><AppIcon name="info" :size="18" /> Статус «частично» не означает автоматической корректировки денежных сумм или остатков: нужна сверка с фактической накладной в 1С.</div>
         <div v-if="error" class="form-error" role="alert">{{error}}</div>
-        <div class="form-footer"><button class="btn btn-secondary" type="button" @click="selectedStopId=''">Отмена</button><button class="btn btn-primary" type="submit">Сохранить результат (демо)</button></div>
+        <div class="form-footer"><button class="btn btn-secondary" type="button" @click="selectedStopId=''">Отмена</button><button class="btn btn-primary" type="submit">Сохранить результат</button></div>
       </form>
     </ModalShell>
   </template>

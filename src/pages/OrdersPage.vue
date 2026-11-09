@@ -43,7 +43,7 @@ const nextStatuses=computed(()=>selected.value ? (['confirmed','picking','ready'
   .filter(to=>canTransitionOrder(selected.value!.status,to)) : [])
 function transition(status:OrderStatus){
   actionError.value=''
-  try{if(selected.value){store.setOrderStatus(selected.value.id,status);store.notify('Заявка обновлена (демо).')}}catch(e){actionError.value=e instanceof Error?e.message:'Не удалось изменить статус.'}
+  try{if(selected.value){store.setOrderStatus(selected.value.id,status);store.notify('Заявка обновлена.')}}catch(e){actionError.value=e instanceof Error?e.message:'Не удалось изменить статус.'}
 }
 </script>
 <template>

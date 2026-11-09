@@ -70,7 +70,7 @@ function who(id:string){return store.data.employees.find(e=>e.id===id)?.name||'�
       <div v-if="selected" class="store-stock-selected">
         <strong>{{selected.name}}</strong>
         <span>{{selected.address}}</span>
-        <span>{{store.data.customers.find(c=>c.id===selected.customerId)?.legalName}}</span>
+        <span>{{store.data.customers.find(c=>c.id===selected?.customerId)?.legalName}}</span>
         <router-link class="text-link" :to="'/outlets/'+(selected?.id||'')">Карточка магазина →</router-link>
       </div>
       <div v-else class="muted small">Выберите точку, чтобы посмотреть историю отгрузок и результаты пересчёта.</div>

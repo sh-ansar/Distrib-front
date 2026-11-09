@@ -115,9 +115,9 @@ function addDoc(){
       <div v-for="record in consignments" :key="record.id" class="detail-item-row"><div><strong>{{store.data.products.find(p=>p.id===record.productId)?.name}}</strong><small>Передано: {{record.sent}}, продано: {{record.sold}}, возвращено: {{record.returned}}</small></div><strong>{{consignmentBalance(record)}} ост.</strong><span class="muted">{{money(consignmentBalance(record)*record.price)}}</span></div>
       <EmptyState v-if="!consignments.length" title="Передач на реализацию нет" />
     </SectionCard>
-    <SectionCard v-else-if="activeTab==='documents'" title="Досье документов" description="Демоверсия сохраняет только названия, не файлы">
+    <SectionCard v-else-if="activeTab==='documents'" title="Досье документов" description="Тестовая среда сохраняет только названия, не файлы">
       <template #action><button v-if="can(store.currentRole,'documents:edit')" class="btn btn-secondary btn-sm" @click="documentOpen=true"><AppIcon name="file-plus-2" :size="16" /> Добавить запись</button></template>
-      <div v-for="doc in docs" :key="doc.id" class="detail-item-row"><AppIcon name="file-text" /><div><strong>{{doc.filename}}</strong><small>{{displayDate(doc.createdAt)}} · демо-запись, без файла</small></div></div>
+      <div v-for="doc in docs" :key="doc.id" class="detail-item-row"><AppIcon name="file-text" /><div><strong>{{doc.filename}}</strong><small>{{displayDate(doc.createdAt)}} · запись, без файла</small></div></div>
       <EmptyState v-if="!docs.length" title="Документы пока не добавлены" />
     </SectionCard>
     <SectionCard v-else title="История взаимодействий" description="События и заметки по магазину и контрагенту">

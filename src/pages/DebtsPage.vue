@@ -40,7 +40,7 @@ function pay(){
   catch(e){error.value=e instanceof Error?e.message:'Не удалось зарегистрировать оплату.'}
 }
 function hold(id:string,shouldHold:boolean){
-  try{store.setCustomerHold(id,shouldHold);store.notify(shouldHold?'Отгрузки приостановлены (демо).':'Приостановка снята (демо).')}
+  try{store.setCustomerHold(id,shouldHold);store.notify(shouldHold?'Отгрузки приостановлены.':'Приостановка снята.')}
   catch(e){store.notify(e instanceof Error?e.message:'Недостаточно прав','error')}
 }
 const grouped=computed(()=>store.visibleCustomers.map(c=>{
@@ -78,7 +78,7 @@ const grouped=computed(()=>store.visibleCustomers.map(c=>{
     </SectionCard>
   </div>
   <div class="inline-notice warn-notice"><AppIcon name="info" :size="18" /> В промышленной версии долги, оплаты и лимиты должны поступать из 1С. Кнопка «Оплата» сейчас меняет только вымышленные данные браузера, не проводит платёж.</div>
-  <ModalShell :open="!!selected" :title="'Демо-оплата · '+(selected?.invoice||'')" subtitle="В 1С и банковские системы данные не отправляются" @close="selectedId=''">
+  <ModalShell :open="!!selected" :title="'Учебная оплата · '+(selected?.invoice||'')" subtitle="В 1С и банковские системы данные не отправляются" @close="selectedId=''">
     <form class="stack-lg" @submit.prevent="pay"><div class="money-summary"><span>Остаток задолженности</span><strong>{{money(selected?debtBalance(selected):0)}}</strong></div>
       <label class="field"><span>Сумма оплаты, ₸</span><input v-model.number="payment" type="number" :max="selected?debtBalance(selected):0" min="1" step="1" required /></label>
       <div v-if="error" class="form-error">{{error}}</div><div class="form-footer"><button class="btn btn-secondary" type="button" @click="selectedId=''">Отмена</button><button class="btn btn-primary" type="submit">Отметить в демо</button></div>

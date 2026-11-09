@@ -52,11 +52,11 @@ function createVisit(){
     store.createVisit({...form})
     showNew.value=false
     day.value=form.plannedDate
-    store.notify('Визит запланирован (демо).')
+    store.notify('Визит запланирован.')
   }catch(e){error.value=e instanceof Error?e.message:'Не удалось создать визит.'}
 }
 function startVisit(id:string){
-  try{store.startVisit(id);store.notify('Визит начат (демо).')}
+  try{store.startVisit(id);store.notify('Визит начат.')}
   catch(e){store.notify(e instanceof Error?e.message:'Не удалось начать визит.','error')}
 }
 function finishOpen(id:string,kind:'completed'|'skipped'){
@@ -68,7 +68,7 @@ function finish(){
     if(!selected.value)throw new Error('Визит не найден.')
     store.finishVisit(selected.value.id,outcome.value,outcomeNotes.value)
     outcomeId.value=''
-    store.notify(outcome.value==='completed'?'Визит завершён (демо).':'Пропуск визита зафиксирован (демо).')
+    store.notify(outcome.value==='completed'?'Визит завершён.':'Пропуск визита зафиксирован.')
   }catch(e){error.value=e instanceof Error?e.message:'Не удалось завершить визит.'}
 }
 const report=computed(()=>{
@@ -142,7 +142,7 @@ const statuses:Record<VisitStatus,string>={planned:'Запланирован',in
       <label class="field"><span>Цель визита *</span><textarea v-model="form.purpose" rows="3" required /></label>
       <div class="inline-notice"><AppIcon name="info" :size="17" /> Представитель назначается по карточке магазина. На одну дату можно создать только один активный визит в эту точку.</div>
       <div v-if="error" class="form-error" role="alert">{{error}}</div>
-      <div class="form-footer"><button type="button" class="btn btn-secondary" @click="showNew=false">Отмена</button><button type="submit" class="btn btn-primary">Запланировать (демо)</button></div>
+      <div class="form-footer"><button type="button" class="btn btn-secondary" @click="showNew=false">Отмена</button><button type="submit" class="btn btn-primary">Запланировать</button></div>
     </form>
   </ModalShell>
   <ModalShell :open="!!selected" :title="outcome==='completed'?'Завершить визит':'Отметить пропуск'" subtitle="Итог сохраняется в истории торговой точки" @close="outcomeId=''">

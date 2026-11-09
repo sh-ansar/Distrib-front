@@ -24,11 +24,11 @@ function reset(){if(confirmReset.value){store.resetDemo();confirmReset.value=fal
       <div class="connection-row"><span class="connection-icon"><AppIcon name="files" /></span><div><strong>Хранилище накладных</strong><small>PDF, фото, документы и права доступа</small></div><span class="status-badge status-neutral">Не подключено</span></div>
       <div class="connection-row"><span class="connection-icon"><AppIcon name="truck" /></span><div><strong>Мобильная система представителей</strong><small>Импорт заявок, обратные статусы</small></div><span class="status-badge status-neutral">Требует обследования</span></div>
     </SectionCard>
-    <SectionCard title="Режим демонстрации" description="Все данные вымышлены и хранятся локально">
-      <div class="settings-demo"><span class="demo-large-icon"><AppIcon name="sparkles" :size="28" /></span><div><strong>Интерактивная демоверсия</strong><p>Можно создавать магазины и заявки, планировать рейсы, менять статусы и моделировать сверки. Изменения не уходят в 1С.</p></div></div>
+    <SectionCard title="Тестовая среда" description="Все данные вымышлены и хранятся локально">
+      <div class="settings-demo"><span class="demo-large-icon"><AppIcon name="sparkles" :size="28" /></span><div><strong>Интерактивная тестовая версия</strong><p>Можно создавать магазины и заявки, планировать рейсы, менять статусы и моделировать сверки. Изменения не уходят в 1С.</p></div></div>
       <div class="demo-actions">
         <label class="checkbox-label"><input v-model="confirmReset" type="checkbox" /> Я понимаю, что все изменения демоверсии в этом браузере будут потеряны.</label>
-        <button type="button" class="btn btn-outline-danger" :disabled="!confirmReset" @click="reset"><AppIcon name="refresh-cw" :size="17" /> Сбросить демоданные</button>
+        <button type="button" class="btn btn-outline-danger" :disabled="!confirmReset" @click="reset"><AppIcon name="refresh-cw" :size="17" /> Сбросить тестовые данные</button>
       </div>
     </SectionCard>
     <SectionCard title="Роли и видимость" description="Первый уровень UX-ограничений, не замена backend RBAC">
@@ -37,7 +37,7 @@ function reset(){if(confirmReset.value){store.resetDemo();confirmReset.value=fal
       </tbody></table></div>
       <div class="permissions-mobile"><details v-for="role in permissions" :key="role.role" class="permission-mobile-role"><summary>{{role.label}}</summary><p>{{role.sections.join(' · ')}}</p></details></div>
     </SectionCard>
-    <SectionCard title="Журнал действий" description="Локальные демонстрационные события">
+    <SectionCard title="Журнал действий" description="Локальные тестовые события">
       <div v-for="a in recent" :key="a.id" class="activity-row"><span class="activity-mark"><AppIcon name="history" :size="16" /></span><div><strong>{{a.message}}</strong><small>{{displayDate(a.createdAt)}} · {{store.data.employees.find(e=>e.id===a.actorId)?.name||'Система'}}</small></div></div>
       <p v-if="!recent.length" class="muted small">Пока нет записей.</p>
     </SectionCard>

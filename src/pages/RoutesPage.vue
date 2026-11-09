@@ -47,7 +47,7 @@ const routes=computed(()=>allRoutes.value.filter(r=>
 ))
 function createRoute(){
   error.value=''
-  try{const r=store.planRoute({...plan});planOpen.value=false;store.notify('Рейс '+r.number+' создан (демо).');router.push('/routes/'+r.id)}
+  try{const r=store.planRoute({...plan});planOpen.value=false;store.notify('Рейс '+r.number+' создан.');router.push('/routes/'+r.id)}
   catch(e){error.value=e instanceof Error?e.message:'Ошибка формирования рейса.'}
 }
 </script>
