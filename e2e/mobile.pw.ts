@@ -3,7 +3,7 @@ const urls=[
   '/', '/companies', '/companies/c1', '/outlets', '/outlets/o1',
   '/visits', '/orders', '/debts', '/consignment', '/inventory',
   '/store-stock?outlet=o1','/sales-plans','/fleet','/control',
-  '/routes', '/routes/r1', '/documents', '/team', '/settings',
+  '/routes', '/routes/r1', '/delivery', '/documents', '/team', '/settings',
 ]
 for(const width of [320,375,390,428,768]){
   test('no horizontal page scroll at '+width+'px', async({page})=>{
@@ -97,4 +97,36 @@ test('control center honors driver visibility',async({page})=>{
   await expect(page.getByRole('combobox',{name:'Направление контроля'}).locator('option[value="finance"]')).toHaveCount(0)
   await expect(page.getByRole('combobox',{name:'Направление контроля'}).locator('option[value="warehouse"]')).toHaveCount(0)
   await expect(page.locator('.mobile-bottom-nav a').first()).toContainText('Контроль')
+})
+
+test('driver marks arrival and failed delivery from phone without GPS',async({page})=>{
+  await page.setViewportSize({width:320,height:720})
+  await page.goto('/delivery')
+  await page.getByRole('button',{name:'Настройки тестового пользователя'}).click()
+  await page.locator('.account-popover select').selectOption('u8')
+  await expect(page.getByRole('heading',{name:'Моя доставка'})).toBeVisible()
+  await page.getByRole('button',{name:'Я прибыл'}).click()
+  await expect(page.getByRole('button',{name:'Результат доставки'})).toBeVisible()
+  await page.getByRole('button',{name:'Результат доставки'}).click()
+  const modal=page.getByRole('dialog')
+  await modal.getByRole('combobox',{name:'Итог доставки'}).selectOption('failed')
+  await modal.locator('textarea').fill('Магазин закрыт, необходимо перенести доставку')
+  await modal.getByRole('button',{name:'Сохранить итог'}).click()
+  await expect(page.getByText('Магазин закрыт, необходимо перенести доставку')).toBeVisible()
+  await page.goto('/control')
+  await expect(page.getByText('Отказ от доставки').first()).toBeVisible()
+})
+test('crew can attach document metadata to an individual stop',async({page})=>{
+  await page.setViewportSize({width:375,height:830})
+  await page.goto('/documents?stop=st2')
+  await page.getByRole('button',{name:'Настройки тестового пользователя'}).click()
+  await page.locator('.account-popover select').selectOption('u12')
+  await expect(page.getByText('Накладные выбранной остановки')).toBeVisible()
+  await page.getByRole('button',{name:'Новая накладная'}).click()
+  const modal=page.getByRole('dialog').first()
+  await expect(modal.locator('select').first()).toHaveValue('stop')
+  await expect(modal.locator('select').nth(1)).toHaveValue('st2')
+  await modal.getByPlaceholder('Накладная №...').fill('Сверка передачи Р-001')
+  await modal.getByRole('button',{name:'Сохранить запись'}).click()
+  await expect(page.getByText('Сверка передачи Р-001').first()).toBeVisible()
 })

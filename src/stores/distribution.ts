@@ -402,12 +402,29 @@ export const useDistributionStore = defineStore('distribution', {
       this.log('route',routeId,'status','Рейс: '+to)
       this.persist()
     },
-    finishStop(routeId:string,stopId:string,status:Exclude<StopStatus,'pending'>,notes:string) {
+    arriveStop(routeId:string,stopId:string){
+      this.require('routes:edit')
+      const route=this.visibleRoutes.find(r=>r.id===routeId)
+      invariant(route?.status==='active','Прибытие можно отметить только в рейсе «В пути».')
+      const stop=route.stops.find(s=>s.id===stopId)
+      invariant(stop?.status==='pending','Точка уже обработана или недоступна.')
+      invariant(!stop.arrivedAt,'Прибытие уже отмечено.')
+      stop.arrivedAt=new Date().toISOString()
+      stop.arrivedBy=this.currentUserId
+      this.log('stop',stopId,'arrival','Отмечено прибытие без GPS-подтверждения')
+      this.persist()
+      return stop
+    },
+    finishStop(routeId:string,stopId:string,status:Exclude<StopStatus,'pending'>,notes:string,receivedBy='') {
       this.require('routes:edit')
       const route=this.visibleRoutes.find(r=>r.id===routeId)
       invariant(route?.status==='active','Рейс должен быть в пути.')
       const stop=route.stops.find(s=>s.id===stopId)
       invariant(stop?.status==='pending','Точка уже обработана.')
+      if(this.currentRole==='driver'||this.currentRole==='forwarder'){
+        invariant(!!stop.arrivedAt,'Сначала отметьте прибытие в магазин.')
+      }
+      invariant(receivedBy.length<=120,'Имя получателя слишком длинное.')
       invariant(status==='delivered'||notes.trim().length>=5,'Для отказа или частичной доставки укажите причину.')
       const orders=stop.orderIds.map(id=>this.data.orders.find(o=>o.id===id))
       invariant(orders.every(o=>o?.status==='in_route'),'В остановке есть недоступные для доставки заявки.')
@@ -453,6 +470,7 @@ export const useDistributionStore = defineStore('distribution', {
         // Partial/failed delivery leaves reservation untouched until the warehouse reconciles returns.
       }
       stop.status=status
+      stop.receivedBy=status==='failed'?'':receivedBy.trim()
       stop.notes=notes.trim()
       stop.completedAt=new Date().toISOString()
       this.log('stop',stopId,'status','Доставка: '+status+(notes ? ' · '+notes:''))

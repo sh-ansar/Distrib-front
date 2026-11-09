@@ -261,4 +261,45 @@ describe('demo domain workflows', () => {
     expect(Object.keys(doc)).not.toContain('content')
     expect(Object.keys(doc)).not.toContain('base64')
   })
+  it('requires an arrival mark for the assigned driver before delivery outcome',()=>{
+    const s=useDistributionStore()
+    s.changeDemoUser('u8')
+    const route=s.visibleRoutes.find(r=>r.id==='r1')!
+    const stop=route.stops.find(st=>st.status==='pending')!
+    expect(()=>s.finishStop(route.id,stop.id,'failed','Магазин закрыт')).toThrow('Сначала отметьте прибытие')
+    s.arriveStop(route.id,stop.id)
+    expect(stop.arrivedBy).toBe('u8')
+    expect(stop.arrivedAt).toBeTruthy()
+    expect(()=>s.arriveStop(route.id,stop.id)).toThrow('Прибытие уже отмечено')
+    s.finishStop(route.id,stop.id,'failed','Магазин закрыт')
+    expect(stop.status).toBe('failed')
+    expect(stop.completedAt).toBeTruthy()
+    expect(s.data.activities.some(a=>a.entityId===stop.id&&a.kind==='arrival')).toBe(true)
+  })
+  it('restricts manual arrivals and metadata to the assigned delivery crew',()=>{
+    const s=useDistributionStore()
+    const stop=s.data.routes.find(r=>r.id==='r1')!.stops.find(st=>st.status==='pending')!
+    s.changeDemoUser('u9')
+    expect(()=>s.arriveStop('r1',stop.id)).toThrow('Рейс недоступен')
+    expect(()=>s.addDocumentMetadata('stop',stop.id,'Бланк.jpg','image/jpeg',40)).toThrow('недоступному')
+    s.changeDemoUser('u12')
+    const result=s.arriveStop('r1',stop.id)
+    expect(result.arrivedBy).toBe('u12')
+    const doc=s.addDocumentMetadata('stop',stop.id,'Накладная для сверки.pdf','application/pdf',1000)
+    expect(doc.entityType).toBe('stop')
+    expect(doc.entityId).toBe(stop.id)
+  })
+  it('keeps optional recipient on successful delivery, without inventing a signature',()=>{
+    const s=useDistributionStore()
+    const route=s.planRoute({date:dayOffset(1),vehicleId:'v2',driverId:'u9',orderIds:['ord3']})
+    s.moveRoute(route.id,'loading');s.moveRoute(route.id,'active')
+    const stop=route.stops[0]!
+    s.changeDemoUser('u9')
+    s.arriveStop(route.id,stop.id)
+    s.finishStop(route.id,stop.id,'delivered','Передано через приёмку','Сотрудник магазина')
+    expect(stop.receivedBy).toBe('Сотрудник магазина')
+    expect(stop.status).toBe('delivered')
+    expect(stop.completedAt).toBeTruthy()
+  })
+
 })

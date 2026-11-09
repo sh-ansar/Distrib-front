@@ -206,6 +206,9 @@ export interface RouteStop {
   status: StopStatus
   notes: string
   completedAt?: string
+  arrivedAt?: string
+  arrivedBy?: string
+  receivedBy?: string
 }
 export interface DeliveryRoute {
   id: string

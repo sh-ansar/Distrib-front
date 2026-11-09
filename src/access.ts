@@ -1,6 +1,6 @@
 import type { Role } from '@/types/domain'
 
-export type Section = 'dashboard' | 'control' | 'companies' | 'outlets' | 'visits' | 'orders' | 'debts' | 'consignment' | 'inventory' | 'storestock' | 'salesplans' | 'fleet' | 'routes' | 'documents' | 'team' | 'settings'
+export type Section = 'dashboard' | 'control' | 'deliveries' | 'companies' | 'outlets' | 'visits' | 'orders' | 'debts' | 'consignment' | 'inventory' | 'storestock' | 'salesplans' | 'fleet' | 'routes' | 'documents' | 'team' | 'settings'
 export type Capability = Section | 'orders:edit' | 'outlets:edit' | 'companies:edit' | 'inventory:edit' | 'plans:edit' | 'fleet:edit' | 'visits:edit' | 'debts:edit' | 'routes:edit' | 'documents:edit' | 'consignment:edit' | 'staff:edit'
 export const roleLabels: Record<Role, string> = {
   admin: 'Администратор', director: 'Руководитель', supervisor: 'Супервайзер',
@@ -8,17 +8,17 @@ export const roleLabels: Record<Role, string> = {
   driver: 'Водитель', forwarder: 'Экспедитор', accountant: 'Бухгалтер',
 }
 const access: Record<Role, Capability[]> = {
-  admin: ['dashboard','control','companies','outlets','visits','orders','debts','consignment','inventory','storestock','salesplans','fleet','routes','documents','team','settings',
+  admin: ['dashboard','control','deliveries','companies','outlets','visits','orders','debts','consignment','inventory','storestock','salesplans','fleet','routes','documents','team','settings',
     'orders:edit','outlets:edit','companies:edit','inventory:edit','plans:edit','fleet:edit','visits:edit','debts:edit','routes:edit','documents:edit','consignment:edit','staff:edit'],
-  director: ['dashboard','control','companies','outlets','visits','orders','debts','consignment','inventory','storestock','salesplans','fleet','routes','documents','team','settings'],
-  supervisor: ['dashboard','control','companies','outlets','visits','orders','debts','consignment','inventory','storestock','salesplans','fleet','routes','documents',
+  director: ['dashboard','control','deliveries','companies','outlets','visits','orders','debts','consignment','inventory','storestock','salesplans','fleet','routes','documents','team','settings'],
+  supervisor: ['dashboard','control','deliveries','companies','outlets','visits','orders','debts','consignment','inventory','storestock','salesplans','fleet','routes','documents',
     'orders:edit','outlets:edit','companies:edit','plans:edit','visits:edit','documents:edit'],
   sales: ['dashboard','control','companies','outlets','visits','orders','debts','consignment','inventory','storestock','salesplans','routes','documents',
     'orders:edit','outlets:edit','visits:edit','documents:edit'],
-  dispatcher: ['dashboard','control','outlets','orders','inventory','storestock','fleet','routes','documents','routes:edit','fleet:edit','documents:edit'],
+  dispatcher: ['dashboard','control','deliveries','outlets','orders','inventory','storestock','fleet','routes','documents','routes:edit','fleet:edit','documents:edit'],
   warehouse: ['dashboard','control','orders','inventory','storestock','routes','documents','inventory:edit','orders:edit','documents:edit'],
-  driver: ['dashboard','control','routes','documents','documents:edit','routes:edit'],
-  forwarder: ['dashboard','control','routes','documents','documents:edit','routes:edit'],
+  driver: ['dashboard','control','deliveries','routes','documents','documents:edit','routes:edit'],
+  forwarder: ['dashboard','control','deliveries','routes','documents','documents:edit','routes:edit'],
   accountant: ['dashboard','control','companies','outlets','orders','debts','consignment','inventory','storestock','documents',
     'debts:edit','consignment:edit','documents:edit'],
 
@@ -40,6 +40,7 @@ export const nav: Array<{section:Section,label:string,icon:string,path:string,gr
   {section:'salesplans',label:'Планы продаж',icon:'target',path:'/sales-plans',group:'main'},
   {section:'fleet',label:'Автопарк',icon:'car-front',path:'/fleet',group:'operations'},
   {section:'routes',label:'Рейсы и доставка',icon:'route',path:'/routes',group:'operations'},
+  {section:'deliveries',label:'Моя доставка',icon:'truck',path:'/delivery',group:'operations'},
   {section:'documents',label:'Документы',icon:'scan-text',path:'/documents',group:'operations'},
   {section:'team',label:'Команда',icon:'users',path:'/team',group:'admin'},
   {section:'settings',label:'Настройки',icon:'settings-2',path:'/settings',group:'admin'},

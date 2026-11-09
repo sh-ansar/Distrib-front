@@ -133,10 +133,30 @@ export function buildControlItems({
         })
       }
       for(const stop of route.stops){
-        if(stop.status!=='partial'&&stop.status!=='failed')continue
         const outlet=outletMap.get(stop.outletId)
         // Role-filtered route stops are trusted only when the outlet is also in scope.
         if(!outlet)continue
+        if(stop.status==='pending'&&stop.arrivedAt){
+          items.push({
+            id:'arrival:'+stop.id,category:'delivery',priority:'attention',
+            title:'Прибытие без итога доставки',
+            detail:route.number+' · '+outlet.name+' · отметка без GPS',
+            owner:driver,deadline:route.date,
+            to:can(role,'deliveries')?'/delivery?route='+escapeQuery(route.id):'/routes/'+escapeQuery(route.id),
+            action:'Заполнить итог',
+          })
+        }
+        if(stop.status==='delivered'&&can(role,'documents')&&
+          !data.documents.some(doc=>doc.entityType==='stop'&&doc.entityId===stop.id)){
+          items.push({
+            id:'missing-waybill:'+stop.id,category:'documents',priority:'attention',
+            title:'Нет записи о накладной точки',
+            detail:route.number+' · '+outlet.name+' · оригинал файла не хранится',
+            owner:driver,deadline:route.date,
+            to:'/documents?stop='+escapeQuery(stop.id),action:'Добавить запись',
+          })
+        }
+        if(stop.status!=='partial'&&stop.status!=='failed')continue
         items.push({
           id:'stop:'+stop.id,category:'delivery',priority:stop.status==='failed'?'critical':'attention',
           title:stop.status==='failed'?'Отказ от доставки':'Частичная доставка',
