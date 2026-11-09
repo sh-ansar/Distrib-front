@@ -157,12 +157,20 @@ export function buildControlItems({
           })
         }
         if(stop.status!=='partial'&&stop.status!=='failed')continue
+        const reconciliation=data.returnReconciliations.find(x=>x.stopId===stop.id)
+        const pending=reconciliation?.status==='submitted'
+        const missing=reconciliation?.status==='confirmed'
+          ? reconciliation.lines.reduce((sum,line)=>sum+line.missingQty,0):0
+        if(reconciliation?.status==='confirmed'&&missing===0)continue
         items.push({
-          id:'stop:'+stop.id,category:'delivery',priority:stop.status==='failed'?'critical':'attention',
-          title:stop.status==='failed'?'Отказ от доставки':'Частичная доставка',
-          detail:route.number+' · '+outlet.name+(stop.notes?' · '+stop.notes:''),
-          owner:driver,deadline:route.date,
-          to:'/routes/'+escapeQuery(route.id),action:'Разобрать доставку',
+          id:'stop:'+stop.id,category:'delivery',
+          priority:missing>0||stop.status==='failed'&&!reconciliation?'critical':'attention',
+          title:missing>0?'Недостача по доставке':stop.status==='failed'?'Отказ от доставки':'Частичная доставка',
+          detail:route.number+' · '+outlet.name+
+            (missing>0?' · '+missing+' ед. остаются в резерве':pending?' · ожидание подтверждения склада':!reconciliation?' · нужна сверка':stop.notes?' · '+stop.notes:''),
+          owner:pending?'Склад':driver,deadline:route.date,
+          to:can(role,'returns')?'/returns?stop='+escapeQuery(stop.id):'/routes/'+escapeQuery(route.id),
+          action:missing>0?'Разобрать недостачу':pending?'Подтвердить сверку':'Сверить возврат',
         })
       }
     }

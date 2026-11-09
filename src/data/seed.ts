@@ -80,7 +80,7 @@ export function createDemoData(): DistributionData {
     {warehouseId:'w2',productId:id,onHand:20+i*4,reserved:i%4,updatedAt:now},
   ])
   return {
-    version:5,
+    version:6,
     customers:[...customers.map(([id,legalName,bin,contactName,status,creditLimit],index)=>({
       id,legalName,bin,contactName,status,creditLimit,termsDays:14,
       phone:'+7 700 000 00 '+id.slice(1).padStart(2,'0'),
@@ -110,6 +110,7 @@ export function createDemoData(): DistributionData {
     outletShipments:sampleShipments(),
     outletStockChecks:sampleOutletChecks(),
     salesPlans:samplePlans(),
+    returnReconciliations:[],
     orders:initialOrders,
     debts:[
       {id:'d1',customerId:'c1',invoice:'РТ-000182',issuedAt:dayOffset(-24),dueAt:dayOffset(-10),amount:560000,paid:200000},

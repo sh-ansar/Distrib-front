@@ -22,6 +22,7 @@ export const router = createRouter({
     {path:'/fleet',component:()=>import('@/pages/FleetPage.vue'),meta:{section:'fleet',title:'Автопарк'}},
     {path:'/routes',component:()=>import('@/pages/RoutesPage.vue'),meta:{section:'routes',title:'Рейсы и доставка'}},
     {path:'/delivery',component:()=>import('@/pages/DeliveryWorkPage.vue'),meta:{section:'deliveries',title:'Моя доставка'}},
+    {path:'/returns',component:()=>import('@/pages/ReturnsPage.vue'),meta:{section:'returns',title:'Возвраты и расхождения'}},
     {path:'/routes/:id',component:()=>import('@/pages/RouteDetailPage.vue'),meta:{section:'routes',title:'Рейс'}},
     {path:'/documents',component:()=>import('@/pages/DocumentsPage.vue'),meta:{section:'documents',title:'Документы'}},
     {path:'/team',component:()=>import('@/pages/TeamPage.vue'),meta:{section:'team',title:'Команда'}},

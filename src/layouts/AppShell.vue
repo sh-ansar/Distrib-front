@@ -16,9 +16,9 @@ const mobilePriority=computed<Section[]>(()=>{
   switch(store.currentRole){
     case 'sales':return ['control','visits','orders','storestock']
     case 'driver':
-    case 'forwarder':return ['deliveries','control','documents','routes']
-    case 'warehouse':return ['control','inventory','orders','dashboard']
-    case 'dispatcher':return ['control','deliveries','routes','fleet']
+    case 'forwarder':return ['deliveries','control','returns','documents']
+    case 'warehouse':return ['control','inventory','returns','orders']
+    case 'dispatcher':return ['control','deliveries','returns','routes']
     case 'accountant':return ['control','debts','companies','documents']
     case 'supervisor':return ['control','visits','companies','salesplans']
     case 'director':return ['control','routes','companies','debts']
@@ -30,7 +30,7 @@ const mobileItems=computed(()=>mobilePriority.value
   .filter((item):item is (typeof nav)[number]=>Boolean(item)).slice(0,4))
 const moreSelected=computed(()=>!!route.meta.section && !mobileItems.value.some(item=>item.section===route.meta.section))
 const shortLabels:Partial<Record<Section,string>>={
-  dashboard:'Обзор',control:'Контроль',deliveries:'Доставка',companies:'Компании',outlets:'Магазины',visits:'Визиты',orders:'Заявки',
+  dashboard:'Обзор',control:'Контроль',deliveries:'Доставка',returns:'Возвраты',companies:'Компании',outlets:'Магазины',visits:'Визиты',orders:'Заявки',
   debts:'Долги',consignment:'Реализация',inventory:'Склад',storestock:'У клиентов',
   salesplans:'Планы',fleet:'Автопарк',routes:'Рейсы',documents:'Документы',team:'Команда',
   settings:'Настройки',

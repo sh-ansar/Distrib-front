@@ -3,7 +3,7 @@ const urls=[
   '/', '/companies', '/companies/c1', '/outlets', '/outlets/o1',
   '/visits', '/orders', '/debts', '/consignment', '/inventory',
   '/store-stock?outlet=o1','/sales-plans','/fleet','/control',
-  '/routes', '/routes/r1', '/delivery', '/documents', '/team', '/settings',
+  '/routes', '/routes/r1', '/delivery', '/returns', '/documents', '/team', '/settings',
 ]
 for(const width of [320,375,390,428,768]){
   test('no horizontal page scroll at '+width+'px', async({page})=>{
@@ -96,7 +96,8 @@ test('control center honors driver visibility',async({page})=>{
   await expect(page.getByRole('heading',{name:'Центр контроля'})).toBeVisible()
   await expect(page.getByRole('combobox',{name:'Направление контроля'}).locator('option[value="finance"]')).toHaveCount(0)
   await expect(page.getByRole('combobox',{name:'Направление контроля'}).locator('option[value="warehouse"]')).toHaveCount(0)
-  await expect(page.locator('.mobile-bottom-nav a').first()).toContainText('Контроль')
+  await expect(page.locator('.mobile-bottom-nav a').first()).toContainText('Доставка')
+  await expect(page.locator('.mobile-bottom-nav a[href="/control"]')).toBeVisible()
 })
 
 test('driver marks arrival and failed delivery from phone without GPS',async({page})=>{
@@ -129,4 +130,28 @@ test('crew can attach document metadata to an individual stop',async({page})=>{
   await modal.getByPlaceholder('Накладная №...').fill('Сверка передачи Р-001')
   await modal.getByRole('button',{name:'Сохранить запись'}).click()
   await expect(page.getByText('Сверка передачи Р-001').first()).toBeVisible()
+})
+
+test('crew submits return and warehouse confirms accounting without double counting',async({page})=>{
+  await page.setViewportSize({width:375,height:820})
+  await page.goto('/delivery')
+  await page.getByRole('button',{name:'Настройки тестового пользователя'}).click()
+  await page.locator('.account-popover select').selectOption('u8')
+  await page.getByRole('button',{name:'Я прибыл'}).click()
+  await page.getByRole('button',{name:'Результат доставки'}).click()
+  const result=page.getByRole('dialog')
+  await result.getByRole('combobox',{name:'Итог доставки'}).selectOption('failed')
+  await result.locator('textarea').fill('Магазин отказался принимать заказ')
+  await result.getByRole('button',{name:'Сохранить итог'}).click()
+  await page.locator('.delivery-return-link').click()
+  await expect(page).toHaveURL(/\/returns\?stop=st2/)
+  await page.getByRole('button',{name:'Составить отчёт'}).click()
+  await expect(page.getByRole('heading',{name:'Сверка товаров'})).toBeVisible()
+  await page.getByRole('button',{name:'Направить на склад'}).click()
+  await expect(page.getByText('На складе').first()).toBeVisible()
+  await page.getByRole('button',{name:'Настройки тестового пользователя'}).click()
+  await page.locator('.account-popover select').selectOption('u10')
+  await page.getByRole('button',{name:'Подтвердить складом'}).click()
+  await expect(page.getByText('Подтверждено').first()).toBeVisible()
+  await expect(page.getByText('Возврат освобождён из резерва.')).toBeVisible()
 })

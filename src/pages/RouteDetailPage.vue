@@ -99,6 +99,7 @@ function orderFor(id:string){return store.data.orders.find(o=>o.id===id)}
               <small v-if="stop.completedAt" class="stop-event-time">Итог: {{eventTime(stop.completedAt)}}</small>
               <small v-if="stop.receivedBy" class="stop-event-time">Получатель: {{stop.receivedBy}}</small>
               <p v-if="stop.notes" class="stop-notes">{{stop.notes}}</p>
+              <router-link v-if="(stop.status==='partial'||stop.status==='failed')&&can(store.currentRole,'returns')" class="text-link no-print" :to="'/returns?stop='+stop.id">Сверить возврат и расхождения →</router-link>
               <div v-if="route.status==='active'&&stop.status==='pending'&&can(store.currentRole,'routes:edit')" class="stop-delivery-actions no-print">
                 <button v-if="!stop.arrivedAt" class="btn btn-secondary btn-sm" type="button" @click="arrive(stop.id)"><AppIcon name="map-pin" :size="16" /> Отметить прибытие</button>
                 <button v-if="stop.arrivedAt||!['driver','forwarder'].includes(store.currentRole)" class="btn btn-primary btn-sm" type="button" @click="openStop(stop.id)"><AppIcon name="clipboard-check" :size="16" /> Итог доставки</button>

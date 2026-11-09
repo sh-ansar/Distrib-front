@@ -150,6 +150,7 @@ function saveResult(){
             <AppIcon name="file-image" :size="16"/> Накладная{{proofCount(stop.id)?' ('+proofCount(stop.id)+')':''}}
           </router-link>
         </div>
+        <router-link v-if="can(store.currentRole,'returns')&&(stop.status==='partial'||stop.status==='failed')" class="btn btn-secondary delivery-return-link" :to="'/returns?stop='+stop.id"><AppIcon name="package-open" :size="16"/> Сверить возврат и расхождения</router-link>
         <div v-if="stop.status==='partial'||stop.status==='failed'" class="delivery-stop-warning">
           <AppIcon name="alert-circle" :size="15"/> Нужна сверка возврата и накладной с учётом склада.
         </div>
