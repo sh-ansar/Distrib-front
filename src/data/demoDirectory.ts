@@ -1,5 +1,6 @@
 import type { Customer, Outlet } from '@/types/domain'
 import { dayOffset } from '@/utils/domain'
+import { demoCompanyProfile } from '@/utils/company'
 
 // Synthetic names and placeholder addresses; not a registry of actual businesses.
 const names = [
@@ -31,6 +32,7 @@ export function generateDemoDirectory(): { customers: Customer[]; outlets: Outle
       creditLimit: 300000 + index * 25000,
       status: index % 13 === 0 ? 'on_hold' : 'active',
       createdAt: dayOffset(-90 + index % 30),
+      profile: demoCompanyProfile(index+8),
     })
     const count = 1 + index % 3
     for (let i = 0; i < count; i++) {
@@ -47,6 +49,8 @@ export function generateDemoDirectory(): { customers: Customer[]; outlets: Outle
         tags: ['Демо'],
         notes: 'Вымышленная запись для проверки поиска и мобильного интерфейса.',
         active: true,
+        receivingWindow: index % 2 === 0 ? '10:00–16:00':'09:00–14:00',
+        accessInstructions: 'Демо: приёмка через основной вход.',
         createdAt: dayOffset(-65 + index % 25),
       })
     }

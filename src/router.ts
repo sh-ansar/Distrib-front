@@ -32,5 +32,5 @@ router.beforeEach(to => {
   return true
 })
 router.afterEach(to => {
-  document.title = String(to.meta.title || 'Darmen UI')+' · Darmen UI'
+  document.title = String(to.meta.title || 'Darmen New Wave')+' · Darmen New Wave'
 })

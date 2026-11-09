@@ -1,7 +1,8 @@
 import { defineStore } from 'pinia'
 import { can, type Capability } from '@/access'
 import { createDemoData } from '@/data/seed'
-import type { Activity, Customer, Debt, DeliveryRoute, DistributionData, DocumentRecord, Employee, Order, OrderItem, OrderStatus, Outlet, Role, RouteStatus, StopStatus, Visit, VisitStatus } from '@/types/domain'
+import { companyProfile } from '@/utils/company'
+import type { Activity, Customer, CustomerProfile, Debt, DeliveryRoute, DistributionData, DocumentRecord, Employee, Order, OrderItem, OrderStatus, Outlet, Role, RouteStatus, StopStatus, Visit, VisitStatus } from '@/types/domain'
 import { canTransitionOrder, consignmentBalance, debtBalance, isoDay, orderTotal, orderWeight, uid } from '@/utils/domain'
 
 const STORAGE_KEY = 'itp-distribution-demo-v1'
@@ -17,7 +18,7 @@ function clone<T>(value: T): T { return JSON.parse(JSON.stringify(value)) as T }
 function validDemo(data: unknown): data is DistributionData {
   if (!data || typeof data !== 'object') return false
   const candidate = data as Record<string, unknown>
-  return (candidate.version === 1 || candidate.version === 2 || candidate.version === 3) && [
+  return (candidate.version === 1 || candidate.version === 2 || candidate.version === 3 || candidate.version === 4) && [
     'customers','outlets','products','warehouses','stocks','orders','debts','consignments',
     'employees','vehicles','routes','documents','activities',
   ].every(key => Array.isArray(candidate[key])) && (candidate.version === 1 || Array.isArray(candidate.visits))
@@ -59,7 +60,13 @@ export const useDistributionStore = defineStore('distribution', {
     },
     visibleRoutes(state): DeliveryRoute[] {
       const employee = state.data.employees.find(e => e.id === state.currentUserId)
-      return employee?.role === 'driver' ? state.data.routes.filter(r => r.driverId === employee.id) : state.data.routes
+      if (employee?.role === 'driver') return state.data.routes.filter(r => r.driverId === employee.id)
+      if (employee?.role === 'sales') {
+        const ids = new Set(state.data.outlets.filter(o=>o.repId===employee.id).map(o=>o.id))
+        return state.data.routes.map(r=>({...r,stops:r.stops.filter(s=>ids.has(s.outletId))}))
+          .filter(r=>r.stops.length>0)
+      }
+      return state.data.routes
     },
     visibleCustomers(): Customer[] {
       const employee = this.currentUser
@@ -78,15 +85,26 @@ export const useDistributionStore = defineStore('distribution', {
         if (saved) {
           const parsed: unknown = JSON.parse(saved)
           if (validDemo(parsed)) {
-            // Add new sample directory without losing existing browser changes.
+            // Upgrade old browser sessions without overwriting previously edited records.
             const enriched = createDemoData()
-            const customerIds = new Set(parsed.customers.map(c => c.id))
-            const outletIds = new Set(parsed.outlets.map(o => o.id))
+            const sampleCustomers = new Map(enriched.customers.map(c=>[c.id,c]))
+            const sampleOutlets = new Map(enriched.outlets.map(o=>[o.id,o]))
+            const customerIds = new Set(parsed.customers.map(c=>c.id))
+            const outletIds = new Set(parsed.outlets.map(o=>o.id))
             this.data = {
-              ...parsed, version: 3,
+              ...parsed, version: 4,
               visits: Array.isArray(parsed.visits) ? parsed.visits : [],
-              customers: [...parsed.customers, ...enriched.customers.filter(c => !customerIds.has(c.id))],
-              outlets: [...parsed.outlets, ...enriched.outlets.filter(o => !outletIds.has(o.id))],
+              customers: [
+                ...parsed.customers.map(c=>({...c,profile:companyProfile(c.profile ?? sampleCustomers.get(c.id)?.profile)})),
+                ...enriched.customers.filter(c=>!customerIds.has(c.id)),
+              ],
+              outlets: [
+                ...parsed.outlets.map(o=>({...o,
+                  receivingWindow:o.receivingWindow ?? sampleOutlets.get(o.id)?.receivingWindow ?? '',
+                  accessInstructions:o.accessInstructions ?? sampleOutlets.get(o.id)?.accessInstructions ?? '',
+                })),
+                ...enriched.outlets.filter(o=>!outletIds.has(o.id)),
+              ],
             }
           }
         }
@@ -121,21 +139,40 @@ export const useDistributionStore = defineStore('distribution', {
     log(entityType: Activity['entityType'], entityId: string, kind: string, message: string) {
       this.data.activities.unshift({ id: uid('act'), entityType, entityId, kind, message, actorId: this.currentUserId, createdAt: new Date().toISOString() })
     },
-    createCustomer(payload: {legalName:string;bin:string;contactName:string;phone:string;email:string;creditLimit:number;termsDays:number}): Customer {
-      this.require('outlets:edit')
+    createCustomer(payload: {legalName:string;bin:string;contactName:string;phone:string;email:string;creditLimit:number;termsDays:number;profile?:Partial<CustomerProfile>}): Customer {
+      this.require('companies:edit')
       invariant(payload.legalName.trim().length >= 3, 'Укажите название юридического лица.')
       invariant(/^\d{12}$/.test(payload.bin), 'БИН должен содержать 12 цифр.')
       invariant(!this.data.customers.some(c => c.bin === payload.bin), 'Контрагент с таким БИН уже существует.')
       invariant(cleanNumber(payload.creditLimit) && payload.termsDays >= 0, 'Проверьте лимит и условия оплаты.')
       const entity: Customer = {
-        ...payload, legalName:payload.legalName.trim(), id:uid('c'), status:'active', createdAt:isoDay(),
+        ...payload, legalName:payload.legalName.trim(),profile:companyProfile(payload.profile), id:uid('c'), status:'active', createdAt:isoDay(),
       }
       this.data.customers.push(entity)
       this.log('customer',entity.id,'created','Создан контрагент')
       this.persist()
       return entity
     },
-    createOutlet(payload: {customerId:string;name:string;address:string;district:string;contactName:string;phone:string;repId:string;notes:string}): Outlet {
+    updateCustomer(id:string,payload:Pick<Customer,'legalName'|'bin'|'contactName'|'phone'|'email'> & {profile:CustomerProfile}) {
+      this.require('companies:edit')
+      const customer = this.visibleCustomers.find(c=>c.id===id)
+      invariant(customer, 'Компания недоступна.')
+      invariant(payload.legalName.trim().length>=3 && payload.legalName.length<=180,'Введите корректное наименование.')
+      invariant(/^\d{12}$/.test(payload.bin),'БИН должен содержать 12 цифр.')
+      invariant(!this.data.customers.some(c=>c.id!==id && c.bin===payload.bin),'Компания с таким БИН уже существует.')
+      invariant(!payload.email || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email),'Проверьте электронную почту.')
+      const profile=companyProfile(payload.profile)
+      invariant(['unknown','vat','no_vat'].includes(profile.vatStatus),'Некорректный статус НДС.')
+      invariant(['bank','cash','mixed'].includes(profile.paymentMethod),'Некорректный способ оплаты.')
+      invariant(profile.notes.length<=3000 && profile.deliveryRequirements.length<=2000,'Примечание слишком длинное.')
+      Object.assign(customer,{
+        legalName:payload.legalName.trim(),bin:payload.bin,contactName:payload.contactName.trim(),
+        phone:payload.phone.trim(),email:payload.email.trim(),profile:{...profile,updatedAt:new Date().toISOString()},
+      })
+      this.log('customer',id,'updated','Обновлено досье компании (демо)')
+      this.persist()
+    },
+    createOutlet(payload: {customerId:string;name:string;address:string;district:string;contactName:string;phone:string;repId:string;notes:string;receivingWindow?:string;accessInstructions?:string}): Outlet {
       this.require('outlets:edit')
       invariant(!!this.data.customers.find(c => c.id === payload.customerId), 'Выберите контрагента.')
       invariant(payload.name.trim().length >= 2 && payload.address.trim().length >= 5, 'Укажите название и адрес точки.')
@@ -150,7 +187,7 @@ export const useDistributionStore = defineStore('distribution', {
       this.persist()
       return entity
     },
-    updateOutlet(id:string, payload:{contactName:string;phone:string;notes:string;address:string;name:string}) {
+    updateOutlet(id:string, payload:{contactName:string;phone:string;notes:string;address:string;name:string;receivingWindow?:string;accessInstructions?:string}) {
       this.require('outlets:edit')
       const outlet = this.visibleOutlets.find(o => o.id === id)
       invariant(outlet, 'Торговая точка недоступна.')

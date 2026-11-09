@@ -1,9 +1,12 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { useDistributionStore } from './distribution'
 import { dayOffset, debtBalance, isOverdue, orderTotal } from '@/utils/domain'
+import { companyProfile } from '@/utils/company'
+import { createDemoData } from '@/data/seed'
 
 beforeEach(()=>{setActivePinia(createPinia())})
+afterEach(()=>vi.unstubAllGlobals())
 describe('demo domain workflows', () => {
   it('scopes stores to current sales representative',()=>{
     const s=useDistributionStore()
@@ -112,6 +115,71 @@ describe('demo domain workflows', () => {
     expect(()=>s.finishStop(route.id,route.stops[0]!.id,'delivered','')).toThrow('Недостаточно учтённого товара')
     expect(route.stops[0]!.status).toBe('pending')
     expect(s.data.orders.find(o=>o.id==='ord3')?.status).toBe('in_route')
+  })
+  it('allows editing an extended dossier but does not change credit terms',()=>{
+    const s=useDistributionStore()
+    const c=s.data.customers.find(x=>x.id==='c1')!
+    const originalLimit=c.creditLimit
+    const originalTerms=c.termsDays
+    const payload={
+      legalName:'ТОО «Обновлённая демо-компания»',bin:c.bin,
+      contactName:'Демо контакт',phone:'+7 000 123 45 67',email:'contact@example.invalid',
+      profile:{...companyProfile(c.profile),tradingName:'Демо Wave',deliveryDays:'Пн, Пт',
+        receivingWindow:'09:00–12:00',deliveryRequirements:'Позвонить за 30 минут'},
+    }
+    s.updateCustomer(c.id,payload)
+    expect(c.profile?.receivingWindow).toBe('09:00–12:00')
+    expect(c.profile?.deliveryRequirements).toContain('30 минут')
+    expect(c.legalName).toContain('Обновлённая')
+    expect(c.creditLimit).toBe(originalLimit)
+    expect(c.termsDays).toBe(originalTerms)
+    expect(s.data.activities.some(a=>a.entityId===c.id&&a.kind==='updated')).toBe(true)
+  })
+  it('restricts sensitive company editing and duplicate identifiers',()=>{
+    const s=useDistributionStore()
+    const c=s.data.customers.find(x=>x.id==='c1')!
+    const payload={
+      legalName:c.legalName,bin:s.data.customers.find(x=>x.id==='c2')!.bin,
+      contactName:c.contactName,phone:c.phone,email:c.email,profile:companyProfile(c.profile),
+    }
+    expect(()=>s.updateCustomer(c.id,payload)).toThrow('БИН уже существует')
+    s.changeDemoUser('u4')
+    expect(()=>s.updateCustomer(c.id,{...payload,bin:c.bin})).toThrow('Недостаточно прав')
+  })
+  it('keeps sales route visibility limited to assigned outlets',()=>{
+    const s=useDistributionStore()
+    s.changeDemoUser('u4')
+    expect(s.visibleRoutes.length).toBeGreaterThan(0)
+    expect(s.visibleRoutes.every(route=>route.stops.every(stop=>
+      s.visibleOutlets.some(outlet=>outlet.id===stop.outletId)))).toBe(true)
+    expect(s.visibleRoutes.some(route=>route.stops.some(stop=>stop.outletId==='o10'))).toBe(false)
+  })
+  it('keeps company delivery data when adding and updating shops',()=>{
+    const s=useDistributionStore()
+    const added=s.createOutlet({customerId:'c1',name:'Магазин для теста',address:'Астана, Демо 55',
+      district:'Есиль',contactName:'Тест',phone:'',repId:'u4',notes:'',
+      receivingWindow:'08:00–12:00',accessInstructions:'Вход со двора'})
+    expect(added.receivingWindow).toBe('08:00–12:00')
+    s.updateOutlet(added.id,{name:added.name,address:added.address,contactName:'',phone:'',notes:'',
+      receivingWindow:'10:00–15:00',accessInstructions:'Звонок диспетчеру'})
+    expect(added.accessInstructions).toBe('Звонок диспетчеру')
+  })
+  it('upgrades old browser data without discarding existing customer edits',()=>{
+    const old=createDemoData()
+    old.version=3
+    old.customers[0]!.contactName='Контакт сохранён до миграции'
+    delete old.customers[0]!.profile
+    const fake=new Map<string,string>([['itp-distribution-demo-v1',JSON.stringify(old)]])
+    vi.stubGlobal('localStorage',{
+      getItem:(key:string)=>fake.get(key)??null,
+      setItem:(key:string,value:string)=>{fake.set(key,value)},
+    })
+    const s=useDistributionStore()
+    s.initialize()
+    expect(s.data.version).toBe(4)
+    expect(s.data.customers.find(c=>c.id==='c1')?.contactName).toBe('Контакт сохранён до миграции')
+    expect(s.data.customers.find(c=>c.id==='c1')?.profile?.tradingName).toBeTruthy()
+    expect(s.data.outlets.find(o=>o.id==='o1')?.receivingWindow).toBeTruthy()
   })
   it('does not store actual file contents',()=>{
     const s=useDistributionStore()

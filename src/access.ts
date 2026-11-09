@@ -1,17 +1,17 @@
 import type { Role } from '@/types/domain'
 
 export type Section = 'dashboard' | 'companies' | 'outlets' | 'visits' | 'orders' | 'debts' | 'consignment' | 'inventory' | 'routes' | 'documents' | 'team' | 'settings'
-export type Capability = Section | 'orders:edit' | 'outlets:edit' | 'visits:edit' | 'debts:edit' | 'routes:edit' | 'documents:edit' | 'consignment:edit' | 'staff:edit'
+export type Capability = Section | 'orders:edit' | 'outlets:edit' | 'companies:edit' | 'visits:edit' | 'debts:edit' | 'routes:edit' | 'documents:edit' | 'consignment:edit' | 'staff:edit'
 export const roleLabels: Record<Role, string> = {
   admin: 'Администратор', director: 'Руководитель', supervisor: 'Супервайзер',
   sales: 'Торговый представитель', dispatcher: 'Диспетчер', warehouse: 'Кладовщик',
   driver: 'Водитель', accountant: 'Бухгалтер',
 }
 const access: Record<Role, Capability[]> = {
-  admin: ['dashboard','companies','outlets','visits','orders','debts','consignment','inventory','routes','documents','team','settings','orders:edit','outlets:edit','visits:edit','debts:edit','routes:edit','documents:edit','consignment:edit','staff:edit'],
+  admin: ['dashboard','companies','outlets','visits','orders','debts','consignment','inventory','routes','documents','team','settings','orders:edit','outlets:edit','companies:edit','visits:edit','debts:edit','routes:edit','documents:edit','consignment:edit','staff:edit'],
   director: ['dashboard','companies','outlets','visits','orders','debts','consignment','inventory','routes','documents','team','settings'],
-  supervisor: ['dashboard','companies','outlets','visits','orders','debts','consignment','inventory','routes','documents','orders:edit','outlets:edit','visits:edit','documents:edit'],
-  sales: ['dashboard','companies','outlets','visits','orders','debts','consignment','inventory','documents','orders:edit','outlets:edit','visits:edit','documents:edit'],
+  supervisor: ['dashboard','companies','outlets','visits','orders','debts','consignment','inventory','routes','documents','orders:edit','outlets:edit','companies:edit','visits:edit','documents:edit'],
+  sales: ['dashboard','companies','outlets','visits','orders','debts','consignment','inventory','routes','documents','orders:edit','outlets:edit','visits:edit','documents:edit'],
   dispatcher: ['dashboard','outlets','orders','inventory','routes','documents','routes:edit','documents:edit'],
   warehouse: ['dashboard','orders','inventory','routes','documents','orders:edit','documents:edit'],
   driver: ['dashboard','routes','documents','documents:edit','routes:edit'],
