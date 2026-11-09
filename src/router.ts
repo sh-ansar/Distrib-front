@@ -7,6 +7,8 @@ export const router = createRouter({
   scrollBehavior: () => ({top:0}),
   routes: [
     {path:'/',component:()=>import('@/pages/DashboardPage.vue'),meta:{section:'dashboard',title:'Обзор'}},
+    {path:'/companies',component:()=>import('@/pages/CompaniesPage.vue'),meta:{section:'companies',title:'Компании'}},
+    {path:'/companies/:id',component:()=>import('@/pages/CompanyDetailPage.vue'),meta:{section:'companies',title:'Карточка компании'}},
     {path:'/outlets',component:()=>import('@/pages/OutletsPage.vue'),meta:{section:'outlets',title:'Торговые точки'}},
     {path:'/visits',component:()=>import('@/pages/VisitsPage.vue'),meta:{section:'visits',title:'Визиты торговых представителей'}},
     {path:'/outlets/:id',component:()=>import('@/pages/OutletDetailPage.vue'),meta:{section:'outlets',title:'Карточка магазина'}},
@@ -30,5 +32,5 @@ router.beforeEach(to => {
   return true
 })
 router.afterEach(to => {
-  document.title = String(to.meta.title || 'ITP Distribution')+' · ITP Distribution'
+  document.title = String(to.meta.title || 'Darmen UI')+' · Darmen UI'
 })

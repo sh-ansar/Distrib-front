@@ -36,7 +36,7 @@ const maxWeek=computed(()=>Math.max(1,...week.value.map(d=>d.amount)))
 const todayLabel=computed(()=>new Intl.DateTimeFormat('ru-RU',{day:'numeric',month:'long',year:'numeric'}).format(new Date()))
 </script>
 <template>
-  <PageTitle eyebrow="РАБОЧАЯ ПАНЕЛЬ" title="Обзор дистрибуции" :subtitle="'Оперативная картина на '+todayLabel">
+  <PageTitle eyebrow="РАБОЧАЯ ПАНЕЛЬ" title="Обзор" :subtitle="'Оперативная картина на '+todayLabel">
     <RouterLink v-if="can(store.currentRole,'orders')" class="btn btn-secondary" to="/orders"><AppIcon name="clipboard-list" :size="17" /> Все заявки</RouterLink>
     <RouterLink v-if="can(store.currentRole,'routes')" class="btn btn-primary" to="/routes"><AppIcon name="truck" :size="17" /> Рейсы</RouterLink>
   </PageTitle>
