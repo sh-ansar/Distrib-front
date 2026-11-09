@@ -10,12 +10,14 @@ import { can } from '@/access'
 import { useDistributionStore } from '@/stores/distribution'
 import { displayDate, money, orderTotal, orderWeight, phoneLink } from '@/utils/domain'
 import { routeProgress } from '@/utils/routeProgress'
+import { estimatedVolume } from '@/utils/expiry'
 import type { RouteStatus, StopStatus } from '@/types/domain'
 const store=useDistributionStore()
 const params=useRoute()
 const route=computed(()=>store.visibleRoutes.find(r=>r.id===String(params.params.id)))
 const vehicle=computed(()=>store.data.vehicles.find(v=>v.id===route.value?.vehicleId))
 const driver=computed(()=>store.data.employees.find(e=>e.id===route.value?.driverId))
+const forwarder=computed(()=>store.data.employees.find(e=>e.id===route.value?.forwarderId))
 const selectedStopId=ref('')
 const outcome=ref<Exclude<StopStatus,'pending'>>('delivered')
 const notes=ref('')
@@ -24,6 +26,7 @@ const selectedStop=computed(()=>route.value?.stops.find(s=>s.id===selectedStopId
 const sortedStops=computed(()=>[...(route.value?.stops||[])].sort((a,b)=>a.position-b.position))
 const routeOrders=computed(()=>store.data.orders.filter(o=>route.value?.stops.some(s=>s.orderIds.includes(o.id))))
 const weight=computed(()=>routeOrders.value.reduce((s,o)=>s+orderWeight(o.items,store.data.products),0))
+const volume=computed(()=>routeOrders.value.reduce((s,o)=>s+estimatedVolume(o.items,store.data.products),0))
 const total=computed(()=>routeOrders.value.reduce((s,o)=>s+orderTotal(o),0))
 const done=computed(()=>route.value?.stops.filter(s=>s.status!=='pending').length||0)
 const progress=computed(()=>route.value?routeProgress(route.value):null)
@@ -50,16 +53,17 @@ function orderFor(id:string){return store.data.orders.find(o=>o.id===id)}
   <template v-else>
     <div class="detail-back"><router-link to="/routes"><AppIcon name="arrow-left" :size="17" /> Все рейсы</router-link></div>
     <PageTitle eyebrow="МАРШРУТНЫЙ ЛИСТ" :title="'Рейс '+route.number" :subtitle="'Дата доставки: '+displayDate(route.date)">
+      <router-link class="btn btn-secondary no-print" :to="'/documents?route='+route.id">Накладные</router-link>
       <button class="btn btn-secondary no-print" @click="printPage"><AppIcon name="printer" :size="17" /> Печать</button>
       <button v-if="can(store.currentRole,'routes:edit')&&nextStatus" class="btn btn-primary no-print" :disabled="nextStatus==='completed'&&done<route.stops.length" @click="move"><AppIcon name="check" :size="17" /> {{nextLabel}}</button>
     </PageTitle>
     <div class="route-head-stats">
       <div><span>Статус рейса</span><StatusBadge :status="route.status" /></div>
       <div><span>Автомобиль</span><strong>{{vehicle?.plate||'—'}}</strong><small>{{vehicle?.title}}</small></div>
-      <div><span>Водитель</span><strong>{{driver?.name||'—'}}</strong></div>
+      <div><span>Водитель</span><strong>{{driver?.name||'—'}}</strong><small>Экспедитор: {{forwarder?.name||'Не назначен'}}</small></div>
       <div><span>Точки</span><strong>{{done}} / {{route.stops.length}}</strong></div>
-      <div><span>Вес загрузки</span><strong>{{weight.toFixed(1)}} кг</strong><small>Лимит {{vehicle?.capacityKg}} кг</small></div>
-      <div><span>Сумма заказов</span><strong>{{money(total)}}</strong></div>
+      <div><span>Вес загрузки</span><strong>{{weight.toFixed(1)}} кг</strong><small>{{vehicle?.capacityKg?Math.round(weight/vehicle.capacityKg*100):0}}% от {{vehicle?.capacityKg}} кг</small></div>
+      <div><span>Объём кузова</span><strong>{{volume.toFixed(2)}} м³</strong><small>{{vehicle?.volumeM3?Math.round(volume/vehicle.volumeM3*100)+'%':''}} от {{vehicle?.volumeM3??'—'}} м³</small></div>
     </div>
     <div class="route-progress route-progress-wide"><span :style="{width:route.stops.length?done/route.stops.length*100+'%':'0%'}" /></div>
     <section class="route-live-summary">
