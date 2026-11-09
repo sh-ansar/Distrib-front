@@ -11,6 +11,7 @@ export const router = createRouter({
     {path:'/companies',component:()=>import('@/pages/CompaniesPage.vue'),meta:{section:'companies',title:'Компании'}},
     {path:'/companies/:id',component:()=>import('@/pages/CompanyDetailPage.vue'),meta:{section:'companies',title:'Карточка компании'}},
     {path:'/outlets',component:()=>import('@/pages/OutletsPage.vue'),meta:{section:'outlets',title:'Торговые точки'}},
+    {path:'/public-stores',component:()=>import('@/pages/PublicStoresPage.vue'),meta:{section:'outlets',title:'Магазины Астаны'}},
     {path:'/visits',component:()=>import('@/pages/VisitsPage.vue'),meta:{section:'visits',title:'Визиты торговых представителей'}},
     {path:'/outlets/:id',component:()=>import('@/pages/OutletDetailPage.vue'),meta:{section:'outlets',title:'Карточка магазина'}},
     {path:'/orders',component:()=>import('@/pages/OrdersPage.vue'),meta:{section:'orders',title:'Заявки'}},

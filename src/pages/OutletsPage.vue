@@ -12,6 +12,7 @@ import { can } from '@/access'
 import { useDistributionStore } from '@/stores/distribution'
 import { debtBalance, money } from '@/utils/domain'
 import { matchesSearch } from '@/utils/search'
+import { publicStoreLeads } from '@/data/publicStores'
 const store=useDistributionStore()
 const route=useRoute()
 const router=useRouter()
@@ -24,6 +25,19 @@ const error=ref('')
 const form=reactive({customerId:'',name:'',address:'Астана, ',district:'Есиль',contactName:'',phone:'',repId:store.currentRole==='sales'?store.currentUserId:'u4',notes:'',receivingWindow:'',accessInstructions:''})
 watch(()=>route.query.q,q=>search.value=String(q??''))
 watch(()=>route.query.customer,q=>customerFilter.value=String(q??''))
+function prefillLead(){
+  const id=String(route.query.lead??'')
+  const entry=publicStoreLeads.find(x=>x.id===id)
+  if(!entry||!can(store.currentRole,'outlets:edit'))return
+  Object.assign(form,{
+    customerId:'',name:entry.name,address:entry.address,district:entry.district,
+    contactName:'',phone:'',receivingWindow:'',accessInstructions:'',
+    notes:'Публичный источник: '+entry.sourceUrl+'. Адрес и право работы с объектом нужно подтвердить.',
+  })
+  error.value=''
+  isCreateOpen.value=true
+}
+watch(()=>route.query.lead,prefillLead,{immediate:true})
 const districts=computed(()=>[...new Set(store.data.outlets.map(o=>o.district))].sort())
 const rows=computed(()=>store.visibleOutlets.filter(o=>{
   const c=store.data.customers.find(c=>c.id===o.customerId)
@@ -55,6 +69,13 @@ function onCompanyCreated(id:string){
   <PageTitle eyebrow="КЛИЕНТСКАЯ БАЗА" title="Торговые точки" :subtitle="store.visibleOutlets.length+' магазинов в доступном реестре'">
     <button v-if="can(store.currentRole,'outlets:edit')" class="btn btn-primary" @click="isCreateOpen=true"><AppIcon name="plus" :size="18" /> Добавить магазин</button>
   </PageTitle>
+  <div class="public-stores-entry">
+    <div>
+      <strong>Масштабный каталог магазинов</strong>
+      <span>{{store.visibleOutlets.length.toLocaleString('ru-RU')}} учебных точек. Отдельно доступны {{publicStoreLeads.length}} реальных адресов из публичных источников — не действующие клиенты.</span>
+    </div>
+    <router-link class="btn btn-secondary" to="/public-stores"><AppIcon name="map-pin" :size="16" /> Магазины Астаны</router-link>
+  </div>
   <div class="mini-stats">
     <div><strong>{{store.visibleCustomers.length}}</strong><span>Контрагентов</span></div>
     <div><strong>{{store.visibleOutlets.length}}</strong><span>Торговых точек</span></div>
@@ -74,7 +95,7 @@ function onCompanyCreated(id:string){
       <template #cell-customerStatus="{row}"><StatusBadge :status="row.customerStatus" :label="row.customerStatus==='active'?'Активен':'Приостановлен'" /></template>
     </UiTable>
   </SectionCard>
-  <ModalShell :open="isCreateOpen" title="Новая торговая точка" subtitle="Привяжите магазин к юридическому контрагенту" size="lg" @close="isCreateOpen=false">
+  <ModalShell :open="isCreateOpen" title="Новая торговая точка" subtitle="Выберите реального контрагента, подтвердите адрес и условия работы" size="lg" @close="isCreateOpen=false">
     <form class="stack-lg" @submit.prevent="createOutlet">
       <div class="form-grid">
         <label class="field field-wide"><span>Контрагент *</span><select v-model="form.customerId" required><option value="">Выберите компанию</option><option v-for="customer in store.visibleCustomers" :key="customer.id" :value="customer.id">{{customer.legalName}}</option></select></label>

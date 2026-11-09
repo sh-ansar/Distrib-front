@@ -57,7 +57,7 @@ const todayLabel=computed(()=>new Intl.DateTimeFormat('ru-RU',{day:'numeric',mon
 
   <section class="dashboard-control-panel" v-if="can(store.currentRole,'control')">
     <div class="dashboard-control-heading">
-      <div><span class="eyebrow">ОПЕРАТИВНЫЕ СОБЫТИЯ</span><h2>Требует внимания</h2>
+      <div><h2>Требует внимания</h2>
         <p>Сроки годности, оплаты, доставка и задачи сотрудников</p></div>
       <RouterLink to="/control" class="btn btn-secondary"><AppIcon name="clipboard-check" :size="17" /> Все задачи ({{controlItems.length}})</RouterLink>
     </div>

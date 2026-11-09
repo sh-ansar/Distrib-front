@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test'
 const urls=[
   '/', '/companies', '/companies/c1', '/outlets', '/outlets/o1',
   '/visits', '/orders', '/debts', '/consignment', '/inventory',
-  '/store-stock?outlet=o1','/sales-plans','/fleet','/control',
+  '/public-stores','/store-stock?outlet=o1','/sales-plans','/fleet','/control',
   '/routes', '/routes/r1', '/delivery', '/returns', '/documents', '/team', '/settings',
 ]
 for(const width of [320,375,390,428,768]){
@@ -167,4 +167,28 @@ test('crew submits return and warehouse confirms accounting without double count
   await page.getByRole('button',{name:'Подтвердить складом'}).click()
   await expect(page.getByText('Подтверждено').first()).toBeVisible()
   await expect(page.getByText('Возврат освобождён из резерва.')).toBeVisible()
+})
+
+test('one thousand sample shops stay searchable on mobile',async({page})=>{
+  await page.setViewportSize({width:375,height:812})
+  await page.goto('/outlets')
+  await expect(page.getByText('1 000 учебных точек')).toBeVisible()
+  await page.getByRole('textbox',{name:'Поиск магазинов'}).fill('Торговая точка 0989')
+  await expect(page.locator('.mobile-record')).toHaveCount(1)
+  await expect(page.locator('.mobile-record-title')).toContainText('Торговая точка 0989')
+})
+test('public-store address opens as unsaved draft requiring a company',async({page})=>{
+  await page.setViewportSize({width:375,height:812})
+  await page.goto('/public-stores')
+  await expect(page.getByRole('heading',{name:'Магазины Астаны'})).toBeVisible()
+  await expect(page.locator('.mobile-record').first()).toBeVisible()
+  await page.getByRole('textbox',{name:'Поиск реальных магазинов'}).fill('Туран 55Д')
+  await expect(page.locator('.mobile-record')).toHaveCount(1)
+  await expect(page.locator('.mobile-record-title')).toContainText('Magnum')
+  await page.getByRole('button',{name:'Заполнить карточку'}).click()
+  await expect(page).toHaveURL(/\/outlets\?lead=pub-magnum-/)
+  const dlg=page.getByRole('dialog').first()
+  await expect(dlg).toBeVisible()
+  await expect(dlg.getByRole('textbox',{name:/Название магазина/})).toHaveValue(/Magnum/)
+  await expect(dlg.locator('select').first()).toHaveValue('')
 })

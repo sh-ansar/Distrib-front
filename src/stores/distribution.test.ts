@@ -383,6 +383,29 @@ describe('demo domain workflows', () => {
     expect(stock.onHand).toBe(beforeOnHand)
     expect(s.data.stockBatches.filter(b=>b.productId==='p1').map(b=>b.remainingQty)).toEqual(beforeLots)
   })
+  it('enriches pre-existing 107-shop sessions without losing user-edited contacts or orders',()=>{
+    const old=createDemoData()
+    old.customers=old.customers.filter(c=>!c.id.startsWith('c-demo-')||Number(c.id.slice('c-demo-'.length))<=48)
+    old.outlets=old.outlets.filter(o=>!o.id.startsWith('o-demo-')||
+      Number(o.id.slice('o-demo-'.length).split('-')[0])<=48&&
+      Number(o.id.slice('o-demo-'.length).split('-')[1])<=1+(Number(o.id.slice('o-demo-'.length).split('-')[0])-1)%3)
+    expect(old.outlets).toHaveLength(107)
+    const first=old.outlets.find(o=>o.id==='o-demo-001-1')!
+    first.contactName='Местный управляющий'
+    const savedOrder=old.orders[0]!.number
+    const local=new Map([['itp-distribution-demo-v1',JSON.stringify(old)]])
+    vi.stubGlobal('localStorage',{
+      getItem:(key:string)=>local.get(key)??null,
+      setItem:(key:string,value:string)=>{local.set(key,value)},
+    })
+    const s=useDistributionStore()
+    s.initialize()
+    expect(s.data.outlets.length).toBe(1000)
+    expect(s.data.customers.length).toBe(248)
+    expect(s.data.outlets.find(o=>o.id==='o-demo-001-1')?.contactName).toBe('Местный управляющий')
+    expect(s.data.orders[0]!.number).toBe(savedOrder)
+    expect(new Set(s.data.outlets.map(o=>o.id)).size).toBe(1000)
+  })
   it('upgrades version five local data to empty reconciliation ledger without deleting customers',()=>{
     const old=createDemoData()
     old.version=5

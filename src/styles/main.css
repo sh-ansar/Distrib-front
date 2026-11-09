@@ -1258,3 +1258,73 @@ a:hover,.text-link:hover{color:#1c4cae}
   .page-title-actions .btn{white-space:normal;overflow-wrap:anywhere;text-align:center;padding-inline:8px;min-width:0;max-width:100%}
   .page-title-wrap,.page-title-wrap>div{min-width:0;max-width:100%;box-sizing:border-box}
 }
+
+
+/* Clean navigation: no decorative uppercase section overlines. */
+.main-nav .nav-group+.nav-group{margin-top:10px;border-top:1px solid #e5ecf7;padding-top:12px}
+.main-nav .nav-group:first-child{padding-top:0}
+.nav-group-label{display:none}
+.page-title-wrap .eyebrow,.dashboard-control-heading .eyebrow{display:none}
+.public-stores-entry{
+  display:flex;gap:16px;align-items:center;justify-content:space-between;
+  padding:16px 19px;margin-bottom:17px;border:1px solid #dce7f6;
+  border-radius:10px;background:#f9fbff;min-width:0
+}
+.public-stores-entry>div{display:flex;flex-direction:column;min-width:0;gap:6px}
+.public-stores-entry strong{font-size:12px;color:#224f86}
+.public-stores-entry span{font-size:11px;color:#6982a1;line-height:1.65;overflow-wrap:anywhere}
+.public-stores-entry .btn{flex:none;white-space:nowrap}
+.public-directory-summary{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:11px;margin-bottom:15px
+}
+.public-directory-summary>div{
+  display:flex;flex-direction:column;gap:6px;padding:17px;background:#fff;
+  border:1px solid #dfe8f5;border-radius:10px;min-width:0
+}
+.public-directory-summary strong{font-size:22px;color:#204d89;line-height:1.2}
+.public-directory-summary span{font-size:11px;color:#8297af;line-height:1.5}
+.public-directory-explainer{
+  display:flex;align-items:flex-start;gap:12px;padding:15px 18px;
+  margin-bottom:19px;border:1px solid #dce8f5;border-radius:10px;background:#f5f9ff
+}
+.public-directory-explainer>svg{flex:none;color:#3769bc;margin-top:1px}
+.public-directory-explainer>div{min-width:0}
+.public-directory-explainer strong{display:block;font-size:12px;line-height:1.5;color:#224e89}
+.public-directory-explainer p{margin:6px 0 0;font-size:11px;line-height:1.75;color:#7088a4}
+.public-directory-filters{display:flex;gap:9px;align-items:center;flex-wrap:wrap}
+.public-directory-filters .search-control{flex:2 1 210px;min-width:0;max-width:460px}
+.public-directory-filters select{flex:1 1 130px;min-width:0}
+.public-store-title{display:flex;flex-direction:column;gap:5px;min-width:0}
+.public-store-title strong{font-size:12px;color:#245284;line-height:1.5;overflow-wrap:anywhere}
+.public-store-title small{font-size:10px;color:#8d9eaf}
+.public-store-address{display:flex;flex-direction:column;gap:6px;min-width:0}
+.public-store-address span{font-size:11px;color:#466686;line-height:1.5;overflow-wrap:anywhere}
+.public-store-address a,.public-source-actions a{
+  color:#2d65c3;text-decoration:none;display:inline-flex;gap:5px;align-items:center;
+  font-size:10.5px;font-weight:650;line-height:1.6
+}
+.public-source-actions{display:flex;align-items:flex-start;flex-direction:column;gap:10px}
+.public-source-actions button{
+  padding:0;border:0;background:transparent;color:#2b65c3;
+  font-size:10.5px;font-weight:650;text-align:left
+}
+.public-source-actions button:hover,.public-source-actions a:hover{text-decoration:underline}
+.public-stores-entry .btn svg{flex:none}
+@media(max-width:790px){
+  .public-stores-entry{flex-direction:column;align-items:stretch;padding:13px;gap:11px}
+  .public-stores-entry .btn{width:100%;justify-content:center;min-height:42px}
+  .public-directory-summary{gap:7px}
+  .public-directory-summary>div{padding:11px 9px}
+  .public-directory-summary strong{font-size:18px}
+  .public-directory-summary span{font-size:9.5px}
+  .public-directory-explainer{padding:12px}
+  .public-directory-filters{flex-direction:column;align-items:stretch}
+  .public-directory-filters .search-control,.public-directory-filters select{
+    flex:auto;width:100%;max-width:none;min-width:0
+  }
+  .public-directory-filters input{min-width:0}
+}
+@media(max-width:370px){
+  .public-directory-summary strong{font-size:16px}
+  .public-directory-summary span{font-size:9px}
+}
