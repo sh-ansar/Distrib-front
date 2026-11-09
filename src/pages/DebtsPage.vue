@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import AppIcon from '@/components/ui/AppIcon.vue'
 import MetricCard from '@/components/ui/MetricCard.vue'
 import ModalShell from '@/components/ui/ModalShell.vue'
@@ -11,7 +12,9 @@ import { can } from '@/access'
 import { useDistributionStore } from '@/stores/distribution'
 import { dayOffset, debtBalance, displayDate, isOverdue, money } from '@/utils/domain'
 const store=useDistributionStore()
-const search=ref('')
+const route=useRoute()
+const search=ref(String(route.query.q??''))
+watch(()=>route.query.q,v=>{search.value=String(v??'')})
 const filter=ref('unpaid')
 const selectedId=ref('')
 const payment=ref<number>(0)

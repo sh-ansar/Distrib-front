@@ -20,7 +20,7 @@ const search=ref('')
 const kind=ref('')
 const modal=ref(false)
 const error=ref('')
-const detailId=ref('')
+const detailId=ref(String(route.query.document??''))
 const form=reactive<{entityType:EntityType;entityId:string;filename:string}>({
   entityType:'order',entityId:'',filename:'',
 })
@@ -47,6 +47,7 @@ function entityName(type:EntityType,id:string){
   if(type==='customer')return store.data.customers.find(x=>x.id===id)?.legalName||'Компания'
   return store.data.outlets.find(x=>x.id===id)?.name||'Магазин'
 }
+watch(()=>route.query.document,v=>{detailId.value=String(v??'')})
 const rows=computed(()=>store.data.documents.filter(d=>
   allowed.value[d.entityType].has(d.entityId)&&(!kind.value||kind.value===d.entityType)&&
   [d.filename,entityName(d.entityType,d.entityId)].join(' ').toLowerCase().includes(search.value.toLowerCase())

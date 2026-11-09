@@ -10,8 +10,10 @@ import { can } from '@/access'
 import { useDistributionStore } from '@/stores/distribution'
 import { dayOffset, debtBalance, displayDate, isOverdue, money, orderTotal, qty } from '@/utils/domain'
 import { routeProgress } from '@/utils/routeProgress'
+import { useControlItems } from '@/composables/useControlItems'
 import { expiryState, outletLastChecks } from '@/utils/expiry'
 const store=useDistributionStore()
+const {items:controlItems,critical:criticalItems,attention:attentionItems}=useControlItems()
 const outstanding=computed(()=>store.visibleDebts.reduce((sum,d)=>sum+debtBalance(d),0))
 const overdue=computed(()=>store.visibleDebts.filter(d=>isOverdue(d)).reduce((sum,d)=>sum+debtBalance(d),0))
 const openOrders=computed(()=>store.visibleOrders.filter(o=>!['delivered','cancelled','partial'].includes(o.status)))
@@ -53,6 +55,22 @@ const todayLabel=computed(()=>new Intl.DateTimeFormat('ru-RU',{day:'numeric',mon
     <MetricCard v-else label="Доставки сегодня" :value="qty(shipments.length)" icon="truck" hint="По доступным заявкам" />
   </div>
 
+  <section class="dashboard-control-panel" v-if="can(store.currentRole,'control')">
+    <div class="dashboard-control-heading">
+      <div><span class="eyebrow">ОПЕРАТИВНЫЕ СОБЫТИЯ</span><h2>Требует внимания</h2>
+        <p>Сроки годности, оплаты, доставка и задачи сотрудников</p></div>
+      <RouterLink to="/control" class="btn btn-secondary"><AppIcon name="clipboard-check" :size="17" /> Все задачи ({{controlItems.length}})</RouterLink>
+    </div>
+    <div class="dashboard-control-summary">
+      <div><AppIcon name="alert-circle" :size="18" /><strong>{{criticalItems}}</strong><span>Срочные</span></div>
+      <div><AppIcon name="clock-3" :size="18" /><strong>{{attentionItems}}</strong><span>На контроле</span></div>
+      <RouterLink v-for="item in controlItems.slice(0,3)" :key="item.id" :to="item.to"
+        class="dashboard-control-link">
+        <strong>{{item.title}}</strong><span>{{item.detail}}</span><AppIcon name="chevron-right" :size="16" />
+      </RouterLink>
+      <span v-if="controlItems.length===0" class="muted small">Новых отклонений нет.</span>
+    </div>
+  </section>
   <div class="dashboard-layout">
     <div class="dashboard-main">
       <SectionCard title="Заявки за 7 дней" description="Объём созданных заявок по дням · демоданные">
