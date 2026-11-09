@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import AppIcon from '@/components/ui/AppIcon.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import MetricCard from '@/components/ui/MetricCard.vue'
@@ -15,8 +16,11 @@ import { expiryLabel, expiryState, sellableQty } from '@/utils/expiry'
 import { matchesSearch } from '@/utils/search'
 
 const store=useDistributionStore()
-const search=ref('')
-const warehouse=ref('w1')
+const route=useRoute()
+const search=ref(String(route.query.batch??''))
+const warehouse=ref(String(route.query.warehouse??'w1'))
+watch(()=>route.query.batch,v=>{search.value=String(v??'')})
+watch(()=>route.query.warehouse,v=>{warehouse.value=String(v??'w1')})
 const category=ref('')
 const state=ref('')
 const modal=ref(false)

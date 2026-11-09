@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRoute } from 'vue-router'
 import AppIcon from '@/components/ui/AppIcon.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import ModalShell from '@/components/ui/ModalShell.vue'
@@ -12,8 +12,10 @@ import { useDistributionStore } from '@/stores/distribution'
 import { displayDate, isoDay } from '@/utils/domain'
 import type { VisitStatus } from '@/types/domain'
 const store=useDistributionStore()
+const route=useRoute()
 const search=ref('')
-const day=ref(isoDay())
+const day=ref(String(route.query.date??isoDay()))
+const focusedOutlet=ref(String(route.query.outlet??''))
 const status=ref('')
 const repId=ref('')
 const showNew=ref(false)
@@ -22,14 +24,16 @@ const outcome=ref<'completed'|'skipped'>('completed')
 const outcomeNotes=ref('')
 const error=ref('')
 const form=reactive({outletId:'',plannedDate:isoDay(),purpose:'Плановый визит: проверить остатки и собрать заявку'})
+watch(()=>route.query.date,v=>{day.value=String(v??isoDay())})
+watch(()=>route.query.outlet,v=>{focusedOutlet.value=String(v??'')})
 const all=computed(()=>store.visibleVisits)
 const visits=computed(()=>all.value.filter(v=>{
   const outlet=store.data.outlets.find(o=>o.id===v.outletId)
   const customer=store.data.customers.find(c=>c.id===outlet?.customerId)
-  return (!day.value||v.plannedDate===day.value)&&(!status.value||v.status===status.value)&&
+  return (!focusedOutlet.value||v.outletId===focusedOutlet.value)&&(!day.value||v.plannedDate===day.value)&&(!status.value||v.status===status.value)&&
     (!repId.value||v.repId===repId.value)&&[outlet?.name,outlet?.address,customer?.legalName,v.purpose,v.notes].join(' ').toLowerCase().includes(search.value.toLowerCase())
 }).sort((a,b)=>a.plannedDate.localeCompare(b.plannedDate)||a.status.localeCompare(b.status)))
-const byDay=computed(()=>all.value.filter(v=>!day.value||v.plannedDate===day.value))
+const byDay=computed(()=>all.value.filter(v=>(!focusedOutlet.value||v.outletId===focusedOutlet.value)&&(!day.value||v.plannedDate===day.value)))
 const dayTotal=computed(()=>byDay.value.length)
 const completed=computed(()=>byDay.value.filter(v=>v.status==='completed').length)
 const skipped=computed(()=>byDay.value.filter(v=>v.status==='skipped').length)
@@ -89,7 +93,8 @@ const statuses:Record<VisitStatus,string>={planned:'Запланирован',in
   </div>
   <div class="visits-layout">
     <SectionCard title="План посещений" description="У каждого визита есть торговая точка, представитель и подтверждённый результат">
-      <div class="table-toolbar" style="margin:-5px -3px 20px;border:1px solid var(--line);border-radius:9px">
+      <div v-if="focusedOutlet" class="control-visit-focus"><span>Фильтр магазина: {{outletName(focusedOutlet)}}</span><button type="button" @click="focusedOutlet=''">Показать все точки</button></div>
+    <div class="table-toolbar" style="margin:-5px -3px 20px;border:1px solid var(--line);border-radius:9px">
         <label class="search-control"><AppIcon name="search" :size="17" /><input v-model="search" placeholder="Поиск магазина или цели" aria-label="Поиск визитов" /></label>
         <input v-model="day" type="date" aria-label="Дата визитов" class="btn btn-secondary" style="max-width:180px" />
         <select v-model="status" aria-label="Статус визита"><option value="">Все статусы</option><option v-for="(label,key) in statuses" :key="key" :value="key">{{label}}</option></select>

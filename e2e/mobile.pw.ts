@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test'
 const urls=[
   '/', '/companies', '/companies/c1', '/outlets', '/outlets/o1',
   '/visits', '/orders', '/debts', '/consignment', '/inventory',
-  '/store-stock?outlet=o1','/sales-plans','/fleet',
+  '/store-stock?outlet=o1','/sales-plans','/fleet','/control',
   '/routes', '/routes/r1', '/documents', '/team', '/settings',
 ]
 for(const width of [320,375,390,428,768]){
@@ -74,4 +74,27 @@ test('semantic icons and role-aware bottom navigation at 320px',async({page})=>{
   await expect(bottom.getByRole('link',{name:'Визиты'})).toBeVisible()
   await expect(bottom.getByRole('link',{name:'У клиентов'})).toBeVisible()
   await expect(page.locator('.topbar-account-avatar svg')).toBeVisible()
+})
+
+test('control center filters actionable alerts and follows exact stock batch',async({page})=>{
+  await page.setViewportSize({width:375,height:812})
+  await page.goto('/control')
+  await expect(page.getByRole('heading',{name:'Центр контроля'})).toBeVisible()
+  await expect(page.locator('.control-record').first()).toBeVisible()
+  await page.getByRole('combobox',{name:'Направление контроля'}).selectOption('warehouse')
+  const warehouse=page.locator('.control-record').first()
+  await expect(warehouse).toBeVisible()
+  await warehouse.click()
+  await expect(page).toHaveURL(/\/inventory\?warehouse=/)
+  await expect(page.getByRole('heading',{name:'Склад и сроки годности'})).toBeVisible()
+})
+test('control center honors driver visibility',async({page})=>{
+  await page.setViewportSize({width:390,height:830})
+  await page.goto('/control')
+  await page.getByRole('button',{name:'Настройки тестового пользователя'}).click()
+  await page.locator('.account-popover select').selectOption('u8')
+  await expect(page.getByRole('heading',{name:'Центр контроля'})).toBeVisible()
+  await expect(page.getByRole('combobox',{name:'Направление контроля'}).locator('option[value="finance"]')).toHaveCount(0)
+  await expect(page.getByRole('combobox',{name:'Направление контроля'}).locator('option[value="warehouse"]')).toHaveCount(0)
+  await expect(page.locator('.mobile-bottom-nav a').first()).toContainText('Контроль')
 })
