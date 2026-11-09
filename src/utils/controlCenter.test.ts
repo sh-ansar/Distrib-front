@@ -88,7 +88,8 @@ describe('operational control center',()=>{
     expect(found?.priority).toBe('critical')
     route.status='completed'
     expect(alerts().some(x=>x.id==='route-late:'+route.id)).toBe(false)
-  })  it('flags a manually arrived stop until delivery is recorded',()=>{
+  })
+  it('flags a manually arrived stop until delivery is recorded',()=>{
     const s=useDistributionStore()
     const r=s.data.routes[0]!
     const stop=r.stops.find(x=>x.status==='pending')!
