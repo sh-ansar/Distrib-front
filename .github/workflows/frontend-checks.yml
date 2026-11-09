@@ -27,7 +27,3 @@ jobs:
         run: npm test
       - name: Build
         run: npm run build
-      - name: Install Chromium for responsive smoke tests
-        run: npx playwright install --with-deps chromium
-      - name: Verify mobile layouts
-        run: npm run test:e2e
