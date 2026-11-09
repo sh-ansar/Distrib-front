@@ -27,3 +27,7 @@ jobs:
         run: npm test
       - name: Build
         run: npm run build
+      - name: Install browser for mobile smoke checks
+        run: npx playwright install --with-deps chromium
+      - name: Mobile smoke checks
+        run: npm run test:e2e
