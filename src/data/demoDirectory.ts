@@ -55,5 +55,50 @@ export function generateDemoDirectory(): { customers: Customer[]; outlets: Outle
       })
     }
   })
+  // Preserve the existing first 48 companies / 96 outlets (and their IDs) so
+  // browser upgrades never lose orders, visits, or user-edited cards.
+  // New entries are clearly synthetic and carry no actual customer relationships.
+  const targetCompanies=240
+  const targetGeneratedOutlets=989 // + 11 foundation outlets = 1,000 in total.
+  for(let index=names.length;index<targetCompanies;index++){
+    const name=names[index%names.length]!
+    const season=1+Math.floor(index/names.length)
+    const customerId='c-demo-'+String(index+1).padStart(3,'0')
+    customers.push({
+      id:customerId,
+      legalName:'ТОО «'+name+' Регион '+season+'»',
+      bin:'000000'+String(100101+index).padStart(6,'0'),
+      contactName:'Контакт не назначен',
+      phone:'',email:'',
+      termsDays:14,creditLimit:0,status:'active',createdAt:dayOffset(-60),
+      profile:demoCompanyProfile(index+8),
+    })
+  }
+  const outletsPerCompany=new Map<string,number>()
+  for(const outlet of outlets)outletsPerCompany.set(outlet.customerId,(outletsPerCompany.get(outlet.customerId)||0)+1)
+  // Assign all additional shops deterministically across the same five districts.
+  // No real coordinates, addresses, contact phones or sales are fabricated.
+  let generated=0
+  while(outlets.length<targetGeneratedOutlets){
+    const companyIndex=(generated*37)%targetCompanies
+    const customer=customers[companyIndex]!
+    const branch=(outletsPerCompany.get(customer.id)||0)+1
+    outletsPerCompany.set(customer.id,branch)
+    const district=districts[(companyIndex+generated)%districts.length]!
+    const serial=String(outlets.length+1).padStart(4,'0')
+    outlets.push({
+      id:'o-demo-'+String(companyIndex+1).padStart(3,'0')+'-'+branch,
+      customerId:customer.id,
+      name:'Торговая точка '+serial+' · '+names[companyIndex%names.length]!,
+      address:'Астана, '+district+', учебный адрес '+serial,
+      district,
+      contactName:'',phone:'',
+      repId:['u4','u5','u6'][generated%3]!,
+      tags:[],notes:'Синтетическая учебная точка. Адрес и реквизиты не подтверждены.',
+      active:true,receivingWindow:'',accessInstructions:'',
+      createdAt:dayOffset(-45+generated%30),
+    })
+    generated++
+  }
   return { customers, outlets }
 }

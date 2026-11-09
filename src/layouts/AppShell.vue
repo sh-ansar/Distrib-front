@@ -71,7 +71,7 @@ function navigateSearch(){
       <nav class="main-nav" aria-label="Основные разделы">
         <template v-for="group in ['main','operations','admin']" :key="group">
           <div v-if="items.some(item=>item.group===group)" class="nav-group">
-            <p class="nav-group-label">{{group==='main'?'РАБОТА':group==='operations'?'ОПЕРАЦИИ':'НАСТРОЙКИ'}}</p>
+            
             <router-link v-for="item in items.filter(item=>item.group===group)" :key="item.section"
               :to="item.path" class="nav-link" :class="{'active':route.meta.section===item.section}"
               :aria-current="route.meta.section===item.section?'page':undefined">
