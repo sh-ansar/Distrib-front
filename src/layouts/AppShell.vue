@@ -38,6 +38,8 @@ const shortLabels:Partial<Record<Section,string>>={
 const pageTitle=computed(()=>String(route.meta.title||'Обзор'))
 watch(()=>route.fullPath,()=>{mobileOpen.value=false;userDropdown.value=false})
 watch(()=>store.currentUserId,()=>{
+  userDropdown.value=false
+  mobileOpen.value=false
   if(!can(store.currentRole,(route.meta.section as Section)||'dashboard'))router.push('/')
 })
 function onKey(e:KeyboardEvent){
@@ -45,7 +47,11 @@ function onKey(e:KeyboardEvent){
 }
 onMounted(()=>window.addEventListener('keydown',onKey))
 onUnmounted(()=>window.removeEventListener('keydown',onKey))
-function switchUser(event:Event){store.changeDemoUser((event.target as HTMLSelectElement).value)}
+function switchUser(event:Event){
+  store.changeDemoUser((event.target as HTMLSelectElement).value)
+  userDropdown.value=false
+  mobileOpen.value=false
+}
 function navigateSearch(){
   const query=store.search.trim()
   if(!query)return
