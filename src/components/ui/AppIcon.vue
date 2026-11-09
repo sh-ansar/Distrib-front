@@ -9,6 +9,7 @@ import {
   MapPin, Menu, MessageSquareText, MoreHorizontal, Package, PackageCheck, PackageOpen, Pencil,
   Phone, Plus, Printer, ReceiptText, RefreshCw, Route, Search, Settings2, ShieldCheck, SlidersHorizontal,
   Sparkles, Store, Truck, Upload, UserRound, Users, Wallet, Warehouse, X,
+  Building2, Boxes, CarFront, PackageSearch, PackagePlus, ScanText, Target, CalendarClock,
 } from 'lucide-vue-next'
 const props=withDefaults(defineProps<{name:string;size?:number;strokeWidth?:number}>(),{size:19,strokeWidth:1.8})
 const icons:Record<string,Component>={
@@ -26,6 +27,8 @@ const icons:Record<string,Component>={
   printer:Printer,'receipt-text':ReceiptText,'refresh-cw':RefreshCw,route:Route,search:Search,
   'settings-2':Settings2,'shield-check':ShieldCheck,'sliders-horizontal':SlidersHorizontal,sparkles:Sparkles,
   store:Store,truck:Truck,upload:Upload,'user-round':UserRound,users:Users,wallet:Wallet,warehouse:Warehouse,x:X,
+  'building-2':Building2,boxes:Boxes,'car-front':CarFront,'package-search':PackageSearch,
+  'package-plus':PackagePlus,'scan-text':ScanText,target:Target,'calendar-clock':CalendarClock,
 }
 const current=computed(()=>icons[props.name]??CircleHelp)
 </script>

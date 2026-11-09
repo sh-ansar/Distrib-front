@@ -67,7 +67,7 @@ function save(){
 </script>
 <template>
   <PageTitle title="Склад и сроки годности" subtitle="Приход по партиям, сроки, доступный остаток и очередность отгрузки">
-    <button v-if="can(store.currentRole,'inventory:edit')" type="button" class="btn btn-primary" @click="openReceipt">Оформить поступление</button>
+    <button v-if="can(store.currentRole,'inventory:edit')" type="button" class="btn btn-primary" @click="openReceipt"><AppIcon name="package-plus" :size="17" /> Оформить поступление</button>
   </PageTitle>
   <div class="metrics-grid">
     <MetricCard label="Всего на складе" :value="qty(amount)" hint="Все партии выбранного склада" />

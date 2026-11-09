@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
+import AppIcon from '@/components/ui/AppIcon.vue'
 import ModalShell from '@/components/ui/ModalShell.vue'
 import PageTitle from '@/components/ui/PageTitle.vue'
 import SectionCard from '@/components/ui/SectionCard.vue'
@@ -44,8 +45,8 @@ function name(id?:string){return store.data.employees.find(e=>e.id===id)?.name||
 </script>
 <template>
   <PageTitle title="Автопарк и экипажи" subtitle="Машины, водители, экспедиторы, рейсы и загрузка на выбранную дату">
-    <button v-if="can(store.currentRole,'staff:edit')" class="btn btn-secondary" @click="staffModal=true">Добавить сотрудника</button>
-    <button v-if="can(store.currentRole,'fleet:edit')" class="btn btn-primary" @click="error='';modal=true">Добавить машину</button>
+    <button v-if="can(store.currentRole,'staff:edit')" class="btn btn-secondary" @click="staffModal=true"><AppIcon name="user-round" :size="17" /> Добавить сотрудника</button>
+    <button v-if="can(store.currentRole,'fleet:edit')" class="btn btn-primary" @click="error='';modal=true"><AppIcon name="car-front" :size="17" /> Добавить машину</button>
   </PageTitle>
   <div class="fleet-date-selector"><label class="field"><span>Дата загрузки</span><input v-model="date" type="date" /></label><span>Загрузка оценивается по назначенным заказам: вес и объём кузова.</span></div>
   <div class="metrics-grid metrics-grid-three">

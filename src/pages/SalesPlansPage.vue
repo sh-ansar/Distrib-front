@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue'
 import ModalShell from '@/components/ui/ModalShell.vue'
+import AppIcon from '@/components/ui/AppIcon.vue'
 import PageTitle from '@/components/ui/PageTitle.vue'
 import SectionCard from '@/components/ui/SectionCard.vue'
 import { can } from '@/access'
@@ -55,7 +56,7 @@ function save(){
   </div>
   <div class="sales-plan-grid">
     <SectionCard v-for="rep in rows" :key="rep.id" :title="rep.name" :description="'Представитель · '+(rep.plan?'План установлен':'План не установлен')">
-      <template #action><button v-if="can(store.currentRole,'plans:edit')" type="button" class="btn btn-secondary btn-sm" @click="open(rep.id)">Изменить план</button></template>
+      <template #action><button v-if="can(store.currentRole,'plans:edit')" type="button" class="btn btn-secondary btn-sm" @click="open(rep.id)"><AppIcon name="pencil" :size="14" /> Изменить план</button></template>
       <div class="sales-plan-metric">
         <div><span>Продажи</span><strong>{{money(rep.actual)}} / {{money(rep.plan?.revenueTarget??0)}}</strong></div>
         <div class="route-progress"><span :style="{width:Math.min(100,rep.revenuePercent)+'%'}" /></div>

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import AppIcon from './AppIcon.vue'
 import type { OrderStatus, RouteStatus, StopStatus } from '@/types/domain'
 import { routeStatuses, statuses } from '@/utils/domain'
 const props=defineProps<{status:string;label?:string}>()
@@ -15,5 +16,13 @@ const tone=computed(()=>{
   if(['confirmed','planned','new'].includes(props.status))return 'info'
   return 'neutral'
 })
+const statusIcon=computed(()=>tone.value==='success'?'check-circle-2':
+  tone.value==='danger'?'alert-circle':tone.value==='warning'?'alert-triangle':
+  tone.value==='info'?'clock-3':'circle')
 </script>
-<template><span class="status-badge" :class="'status-'+tone">{{ text }}</span></template>
+<template>
+  <span class="status-badge" :class="'status-'+tone">
+    <AppIcon :name="statusIcon" :size="13" :stroke-width="1.9" />
+    <span>{{text}}</span>
+  </span>
+</template>

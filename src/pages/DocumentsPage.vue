@@ -109,7 +109,7 @@ function humanSize(bytes:number){return bytes?Math.round(bytes/1024)+' КБ':'�
 </script>
 <template>
   <PageTitle title="Накладные и документы" subtitle="Связь с заказами и рейсами, просмотр приложенного файла и пример распознавания">
-    <button v-if="can(store.currentRole,'documents:edit')" class="btn btn-primary" type="button" @click="open">Новая накладная</button>
+    <button v-if="can(store.currentRole,'documents:edit')" class="btn btn-primary" type="button" @click="open"><AppIcon name="file-plus-2" :size="17" /> Новая накладная</button>
   </PageTitle>
   <SectionCard title="Реестр документов" description="Названия, привязка к объектам и сохранённые образцы полей" :flush="true">
     <div class="table-toolbar">
@@ -144,7 +144,7 @@ function humanSize(bytes:number){return bytes?Math.round(bytes/1024)+' КБ':'�
         <a v-else-if="picked.type==='application/pdf'" :href="previewUrl" target="_blank" rel="noopener noreferrer" class="text-link">Посмотреть PDF в браузере →</a>
       </div>
       <div class="document-sample-actions">
-        <button type="button" class="btn btn-secondary" @click="simulate">Показать пример распознавания</button>
+        <button type="button" class="btn btn-secondary" @click="simulate"><AppIcon name="scan-text" :size="17" /> Показать пример распознавания</button>
         <span>Имитация на основе выбранной заявки, не OCR.</span>
       </div>
       <div v-if="extract" class="sample-waybill">

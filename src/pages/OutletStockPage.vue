@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
+import AppIcon from '@/components/ui/AppIcon.vue'
 import { useRoute, useRouter } from 'vue-router'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import ModalShell from '@/components/ui/ModalShell.vue'
@@ -65,7 +66,7 @@ function who(id:string){return store.data.employees.find(e=>e.id===id)?.name||'�
 </script>
 <template>
   <PageTitle title="Товар у клиентов" subtitle="Поставки по партиям и фактически сверенные остатки в магазинах">
-    <button v-if="selected&&can(store.currentRole,'visits:edit')" class="btn btn-primary" @click="open">Проверить остаток магазина</button>
+    <button v-if="selected&&can(store.currentRole,'visits:edit')" class="btn btn-primary" @click="open"><AppIcon name="package-search" :size="17" /> Проверить остаток магазина</button>
   </PageTitle>
   <SectionCard v-if="allAlerts.length" title="Сроки годности у клиентов" description="Кому нужно позвонить и что проверить на полке — только последние ручные сверки">
     <div class="outlet-expiry-alerts">
