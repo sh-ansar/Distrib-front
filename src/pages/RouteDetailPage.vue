@@ -27,7 +27,6 @@ const sortedStops=computed(()=>[...(route.value?.stops||[])].sort((a,b)=>a.posit
 const routeOrders=computed(()=>store.data.orders.filter(o=>route.value?.stops.some(s=>s.orderIds.includes(o.id))))
 const weight=computed(()=>routeOrders.value.reduce((s,o)=>s+orderWeight(o.items,store.data.products),0))
 const volume=computed(()=>routeOrders.value.reduce((s,o)=>s+estimatedVolume(o.items,store.data.products),0))
-const total=computed(()=>routeOrders.value.reduce((s,o)=>s+orderTotal(o),0))
 const done=computed(()=>route.value?.stops.filter(s=>s.status!=='pending').length||0)
 const progress=computed(()=>route.value?routeProgress(route.value):null)
 const nextStatus=computed<RouteStatus|null>(()=>route.value?.status==='planned'?'loading':route.value?.status==='loading'?'active':route.value?.status==='active'?'completed':null)

@@ -1,6 +1,6 @@
 import type { Role } from '@/types/domain'
 
-export type Section = 'dashboard' | 'companies' | 'outlets' | 'visits' | 'orders' | 'debts' | 'consignment' | 'inventory' | 'salesplans' | 'fleet' | 'routes' | 'documents' | 'team' | 'settings'
+export type Section = 'dashboard' | 'companies' | 'outlets' | 'visits' | 'orders' | 'debts' | 'consignment' | 'inventory' | 'storestock' | 'salesplans' | 'fleet' | 'routes' | 'documents' | 'team' | 'settings'
 export type Capability = Section | 'orders:edit' | 'outlets:edit' | 'companies:edit' | 'inventory:edit' | 'plans:edit' | 'fleet:edit' | 'visits:edit' | 'debts:edit' | 'routes:edit' | 'documents:edit' | 'consignment:edit' | 'staff:edit'
 export const roleLabels: Record<Role, string> = {
   admin: 'Администратор', director: 'Руководитель', supervisor: 'Супервайзер',

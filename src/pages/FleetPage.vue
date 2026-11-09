@@ -7,7 +7,7 @@ import SectionCard from '@/components/ui/SectionCard.vue'
 import StatusBadge from '@/components/ui/StatusBadge.vue'
 import { can } from '@/access'
 import { useDistributionStore } from '@/stores/distribution'
-import { dayOffset, displayDate, orderWeight } from '@/utils/domain'
+import { dayOffset, orderWeight } from '@/utils/domain'
 import { estimatedVolume } from '@/utils/expiry'
 
 const store=useDistributionStore()

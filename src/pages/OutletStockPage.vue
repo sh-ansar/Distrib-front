@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import AppIcon from '@/components/ui/AppIcon.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import ModalShell from '@/components/ui/ModalShell.vue'
 import PageTitle from '@/components/ui/PageTitle.vue'
@@ -46,7 +45,7 @@ watch(()=>route.query.outlet,id=>{selectedId.value=String(id??'')})
 watch(selectedId,id=>{form.outletId=id;router.replace({path:'/store-stock',query:id?{outlet:id}:{}})})
 function open(){
   if(!selected.value)return
-  form.outletId=selected.value.id
+  form.outletId=selected.value!.id
   form.productId='p1';form.batchNumber='';form.quantity=0;form.notes='';error.value='';modal.value=true
 }
 function save(){
@@ -72,7 +71,7 @@ function who(id:string){return store.data.employees.find(e=>e.id===id)?.name||'�
         <strong>{{selected.name}}</strong>
         <span>{{selected.address}}</span>
         <span>{{store.data.customers.find(c=>c.id===selected.customerId)?.legalName}}</span>
-        <router-link class="text-link" :to="'/outlets/'+selected.id">Карточка магазина →</router-link>
+        <router-link class="text-link" :to="'/outlets/'+(selected?.id||'')">Карточка магазина →</router-link>
       </div>
       <div v-else class="muted small">Выберите точку, чтобы посмотреть историю отгрузок и результаты пересчёта.</div>
     </SectionCard>

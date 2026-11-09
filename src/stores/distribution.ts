@@ -4,7 +4,7 @@ import { createDemoData } from '@/data/seed'
 import { companyProfile } from '@/utils/company'
 import { allocateFEFO, estimatedVolume, sellableQty } from '@/utils/expiry'
 import { batchesForStocks, sampleOutletChecks, sampleShipments, samplePlans } from '@/data/operationsSeed'
-import type { Activity, Customer, CustomerProfile, Debt, DeliveryRoute, DistributionData, DocumentRecord, Employee, Order, OrderItem, OrderStatus, Outlet, Role, RouteStatus, StopStatus, Visit, VisitStatus, StockBatch, SalesPlan, WaybillSample, Vehicle } from '@/types/domain'
+import type { Activity, Customer, CustomerProfile, Debt, DeliveryRoute, DistributionData, DocumentRecord, Employee, OutletShipment, Order, OrderItem, OrderStatus, Outlet, Role, RouteStatus, StopStatus, Visit, VisitStatus, StockBatch, SalesPlan, WaybillSample, Vehicle } from '@/types/domain'
 import { canTransitionOrder, consignmentBalance, debtBalance, isoDay, orderTotal, orderWeight, uid } from '@/utils/domain'
 
 const STORAGE_KEY = 'itp-distribution-demo-v1'
@@ -414,7 +414,7 @@ export const useDistributionStore = defineStore('distribution', {
       if(status==='delivered') {
         // Validate the complete delivery and plan all allocations before modifying stock.
         const draft=this.data.stockBatches.map(batch=>({...batch}))
-        const shipments: typeof this.data.outletShipments=[]
+        const shipments: OutletShipment[]=[]
         const demand=new Map<string,number>()
         for(const order of orders){
           for(const item of order!.items){
