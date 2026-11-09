@@ -10,6 +10,7 @@ import UiTable from '@/components/ui/UiTable.vue'
 import { can } from '@/access'
 import { useDistributionStore } from '@/stores/distribution'
 import { debtBalance, money } from '@/utils/domain'
+import { matchesSearch } from '@/utils/search'
 const store=useDistributionStore()
 const route=useRoute()
 const router=useRouter()
@@ -27,7 +28,7 @@ watch(()=>route.query.customer,q=>customerFilter.value=String(q??''))
 const districts=computed(()=>[...new Set(store.data.outlets.map(o=>o.district))].sort())
 const rows=computed(()=>store.visibleOutlets.filter(o=>{
   const c=store.data.customers.find(c=>c.id===o.customerId)
-  const match=[o.name,o.address,c?.legalName,o.contactName,o.phone].join(' ').toLowerCase().includes(search.value.toLowerCase())
+  const match=matchesSearch(search.value,[o.name,o.address,c?.legalName,c?.bin,c?.phone,c?.email,o.contactName,o.phone])
   return match && (!district.value||district.value===o.district) && (!customerFilter.value||customerFilter.value===o.customerId)
 }).map(o=>({...o,customerName:store.data.customers.find(c=>c.id===o.customerId)?.legalName||'—',
   repName:store.data.employees.find(e=>e.id===o.repId)?.name||'—',debt:store.data.debts.filter(d=>d.customerId===o.customerId).reduce((sum,d)=>sum+debtBalance(d),0),
@@ -63,7 +64,7 @@ function createCustomer(){
   </div>
   <SectionCard title="Реестр магазинов" description="Карточки, контакты, ответственное лицо и финансовая информация" :flush="true">
     <div class="table-toolbar">
-      <label class="search-control"><AppIcon name="search" :size="18" /><input v-model="search" aria-label="Поиск магазинов" placeholder="Название, адрес, контрагент..." /></label>
+      <label class="search-control"><AppIcon name="search" :size="18" /><input v-model="search" aria-label="Поиск магазинов" placeholder="Магазин, компания, БИН, адрес..." /></label>
       <select v-model="district" aria-label="Район"><option value="">Все районы</option><option v-for="d in districts" :key="d" :value="d">{{d}}</option></select>
       <button v-if="customerFilter" class="btn btn-secondary btn-sm" @click="customerFilter='';router.replace('/outlets')">Сбросить контрагента <AppIcon name="x" :size="14" /></button>
       <span class="toolbar-count">Найдено: {{rows.length}}</span>

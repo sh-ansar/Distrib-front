@@ -7,7 +7,7 @@ const store=useDistributionStore()
   <div v-if="!store.demoMode" class="setup-screen">
     <div class="setup-card">
       <span class="brand-icon">D</span>
-      <h1>ITP Distribution</h1>
+      <h1>Darmen UI</h1>
       <p>Режим API включён, но backend и авторизация пока не подключены.</p>
       <p>Приложение не показывает вымышленные данные как реальные и не имитирует успешные операции.</p>
       <code>VITE_DATA_MODE=demo</code>

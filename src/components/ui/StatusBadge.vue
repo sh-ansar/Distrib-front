@@ -16,4 +16,4 @@ const tone=computed(()=>{
   return 'neutral'
 })
 </script>
-<template><span class="status-badge" :class="'status-'+tone"><span class="status-dot" />{{ text }}</span></template>
+<template><span class="status-badge" :class="'status-'+tone">{{ text }}</span></template>

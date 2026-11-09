@@ -12,6 +12,7 @@ const confirmReset=ref(false)
 const recent=computed(()=>[...store.data.activities].sort((a,b)=>b.createdAt.localeCompare(a.createdAt)).slice(0,12))
 const roles=Object.keys(roleLabels) as Role[]
 const sections=nav.filter(n=>n.section!=='settings')
+const permissions=roles.map(role=>({role,label:roleLabels[role],sections:sections.filter(section=>can(role,section.section)).map(section=>section.label)}))
 function reset(){if(confirmReset.value){store.resetDemo();confirmReset.value=false}}
 </script>
 <template>
@@ -34,6 +35,7 @@ function reset(){if(confirmReset.value){store.resetDemo();confirmReset.value=fal
       <div class="permissions-scroll"><table class="permissions-table"><thead><tr><th>Роль</th><th v-for="s in sections" :key="s.section" :title="s.label">{{s.label}}</th></tr></thead><tbody>
         <tr v-for="role in roles" :key="role"><th>{{roleLabels[role]}}</th><td v-for="s in sections" :key="s.section"><AppIcon :name="can(role,s.section)?'check':'x'" :size="16" :class="can(role,s.section)?'text-success':'muted-faint'" /></td></tr>
       </tbody></table></div>
+      <div class="permissions-mobile"><details v-for="role in permissions" :key="role.role" class="permission-mobile-role"><summary>{{role.label}}</summary><p>{{role.sections.join(' · ')}}</p></details></div>
     </SectionCard>
     <SectionCard title="Журнал действий" description="Локальные демонстрационные события">
       <div v-for="a in recent" :key="a.id" class="activity-row"><span class="activity-mark"><AppIcon name="history" :size="16" /></span><div><strong>{{a.message}}</strong><small>{{displayDate(a.createdAt)}} · {{store.data.employees.find(e=>e.id===a.actorId)?.name||'Система'}}</small></div></div>

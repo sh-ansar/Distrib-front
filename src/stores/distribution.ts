@@ -17,7 +17,7 @@ function clone<T>(value: T): T { return JSON.parse(JSON.stringify(value)) as T }
 function validDemo(data: unknown): data is DistributionData {
   if (!data || typeof data !== 'object') return false
   const candidate = data as Record<string, unknown>
-  return (candidate.version === 1 || candidate.version === 2) && [
+  return (candidate.version === 1 || candidate.version === 2 || candidate.version === 3) && [
     'customers','outlets','products','warehouses','stocks','orders','debts','consignments',
     'employees','vehicles','routes','documents','activities',
   ].every(key => Array.isArray(candidate[key])) && (candidate.version === 1 || Array.isArray(candidate.visits))
@@ -62,6 +62,8 @@ export const useDistributionStore = defineStore('distribution', {
       return employee?.role === 'driver' ? state.data.routes.filter(r => r.driverId === employee.id) : state.data.routes
     },
     visibleCustomers(): Customer[] {
+      const employee = this.currentUser
+      if (employee?.role !== 'sales' && employee?.role !== 'driver') return this.data.customers
       const ids = new Set(this.visibleOutlets.map(o => o.customerId))
       return this.data.customers.filter(c => ids.has(c.id))
     },
@@ -76,8 +78,16 @@ export const useDistributionStore = defineStore('distribution', {
         if (saved) {
           const parsed: unknown = JSON.parse(saved)
           if (validDemo(parsed)) {
-            // Upgrade existing browser demo records without dropping user edits.
-            this.data = { ...parsed, version: 2, visits: Array.isArray(parsed.visits) ? parsed.visits : [] }
+            // Add new sample directory without losing existing browser changes.
+            const enriched = createDemoData()
+            const customerIds = new Set(parsed.customers.map(c => c.id))
+            const outletIds = new Set(parsed.outlets.map(o => o.id))
+            this.data = {
+              ...parsed, version: 3,
+              visits: Array.isArray(parsed.visits) ? parsed.visits : [],
+              customers: [...parsed.customers, ...enriched.customers.filter(c => !customerIds.has(c.id))],
+              outlets: [...parsed.outlets, ...enriched.outlets.filter(o => !outletIds.has(o.id))],
+            }
           }
         }
         const userId = localStorage.getItem(USER_KEY)

@@ -1,9 +1,11 @@
 import type { DistributionData, Order, OrderStatus } from '@/types/domain'
 import { dayOffset } from '@/utils/domain'
+import { generateDemoDirectory } from '@/data/demoDirectory'
 
 // Entirely fictional demo data. Never replace with customer data in this file.
 export function createDemoData(): DistributionData {
   const now = new Date().toISOString()
+  const directory = generateDemoDirectory()
   const customers = [
     ['c1','ТОО «Север Торг»','000000000001','Алия Т.','active',1500000],
     ['c2','ТОО «Город Маркет»','000000000002','Данияр А.','active',900000],
@@ -72,17 +74,17 @@ export function createDemoData(): DistributionData {
     .filter(o=>['confirmed','picking','ready','in_route'].includes(o.status))
     .reduce((sum,o)=>sum+o.items.filter(i=>i.productId===productId).reduce((q,i)=>q+i.quantity,0),0)
   return {
-    version:2,
-    customers:customers.map(([id,legalName,bin,contactName,status,creditLimit])=>({
+    version:3,
+    customers:[...customers.map(([id,legalName,bin,contactName,status,creditLimit])=>({
       id,legalName,bin,contactName,status,creditLimit,termsDays:14,
       phone:'+7 700 000 00 '+id.slice(1).padStart(2,'0'),
       email:'demo-'+id+'@example.invalid',createdAt:dayOffset(-150),
-    })),
-    outlets:outlets.map(([id,customerId,name,address,district,repId])=>({
+    })),...directory.customers],
+    outlets:[...outlets.map(([id,customerId,name,address,district,repId])=>({
       id,customerId,name,address:'Астана, '+address,district,contactName:'Контакт магазина',
       phone:'+7 700 000 11 '+id.slice(1).padStart(2,'0'),repId,tags:[],
       notes:'',active:true,createdAt:dayOffset(-130),
-    })),
+    })),...directory.outlets],
     visits:[
       {id:'vi1',outletId:'o1',repId:'u4',plannedDate:dayOffset(0),status:'planned',purpose:'Проверить ассортимент и собрать заявку',notes:''},
       {id:'vi2',outletId:'o3',repId:'u5',plannedDate:dayOffset(0),status:'planned',purpose:'Плановый визит',notes:''},
