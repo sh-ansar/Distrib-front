@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { can, type Capability } from '@/access'
 import { createDemoData } from '@/data/seed'
-import type { Activity, Consignment, Customer, Debt, DeliveryRoute, DistributionData, DocumentRecord, Employee, Order, OrderItem, OrderStatus, Outlet, Role, RouteStatus, StopStatus } from '@/types/domain'
+import type { Activity, Customer, Debt, DeliveryRoute, DistributionData, DocumentRecord, Employee, Order, OrderItem, OrderStatus, Outlet, Role, RouteStatus, StopStatus } from '@/types/domain'
 import { canTransitionOrder, consignmentBalance, debtBalance, isoDay, orderTotal, orderWeight, uid } from '@/utils/domain'
 
 const STORAGE_KEY = 'itp-distribution-demo-v1'

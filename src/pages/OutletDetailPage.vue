@@ -67,7 +67,7 @@ function addDoc(){
         <dl class="details-list">
           <div><dt>Адрес</dt><dd>{{outlet.address}}</dd></div>
           <div><dt>Район</dt><dd>{{outlet.district}}</dd></div>
-          <div><dt>Ответственный</dt><dd>{{store.data.employees.find(e=>e.id===outlet.repId)?.name}}</dd></div>
+          <div><dt>Ответственный</dt><dd>{{store.data.employees.find(e=>e.id===outlet?.repId)?.name}}</dd></div>
           <div><dt>Юридическое лицо</dt><dd>{{customer?.legalName}}</dd></div>
           <div><dt>Кредитный лимит</dt><dd>{{money(customer?.creditLimit||0)}}</dd></div>
           <div><dt>Отсрочка платежа</dt><dd>{{customer?.termsDays}} дней</dd></div>

@@ -8,7 +8,7 @@ import SectionCard from '@/components/ui/SectionCard.vue'
 import UiTable from '@/components/ui/UiTable.vue'
 import { can } from '@/access'
 import { useDistributionStore } from '@/stores/distribution'
-import { consignmentBalance, consignmentValue, displayDate, money } from '@/utils/domain'
+import { consignmentBalance, consignmentValue, money } from '@/utils/domain'
 const store=useDistributionStore()
 const search=ref('')
 const selectedId=ref('')
@@ -59,7 +59,7 @@ function reconcile(){
   <div class="inline-notice"><AppIcon name="info" :size="18" /> Консигнация и обычная отсрочка платежа учитываются отдельно. Здесь нельзя автоматически считать передачу оплаченной или проданной без отчёта клиента.</div>
   <ModalShell :open="!!selected" title="Сверка реализации" subtitle="Демо-запись о проданном и возвращённом товаре" @close="selectedId=''">
     <form v-if="selected" class="stack-lg" @submit.prevent="reconcile">
-      <div class="money-summary"><span>{{store.data.products.find(p=>p.id===selected.productId)?.name}}</span><strong>На остатке {{consignmentBalance(selected)}}</strong></div>
+      <div class="money-summary"><span>{{store.data.products.find(p=>p.id===selected?.productId)?.name}}</span><strong>На остатке {{consignmentBalance(selected)}}</strong></div>
       <div class="form-grid"><label class="field"><span>Продано с прошлой сверки</span><input v-model.number="sold" type="number" min="0" step="1" required /></label><label class="field"><span>Возвращено</span><input v-model.number="returned" type="number" min="0" step="1" required /></label></div>
       <div v-if="error" class="form-error">{{error}}</div><div class="form-footer"><button type="button" class="btn btn-secondary" @click="selectedId=''">Отмена</button><button type="submit" class="btn btn-primary">Провести сверку (демо)</button></div>
     </form>

@@ -19,7 +19,7 @@ const error=ref('')
 const selected=computed(()=>store.visibleDebts.find(d=>d.id===selectedId.value))
 const balances=computed(()=>store.visibleDebts.filter(d=>debtBalance(d)>0))
 const total=computed(()=>balances.value.reduce((s,d)=>s+debtBalance(d),0))
-const overdue=computed(()=>balances.value.filter(isOverdue).reduce((s,d)=>s+debtBalance(d),0))
+const overdue=computed(()=>balances.value.filter(d=>isOverdue(d)).reduce((s,d)=>s+debtBalance(d),0))
 const overdue30=computed(()=>balances.value.filter(d=>isOverdue(d)&&d.dueAt<dayOffset(-30)).reduce((s,d)=>s+debtBalance(d),0))
 const rows=computed(()=>store.visibleDebts.filter(d=>{
   const customer=store.data.customers.find(c=>c.id===d.customerId)
@@ -45,7 +45,7 @@ function hold(id:string,shouldHold:boolean){
 }
 const grouped=computed(()=>store.visibleCustomers.map(c=>{
   const debts=balances.value.filter(d=>d.customerId===c.id)
-  return {...c,amount:debts.reduce((s,d)=>s+debtBalance(d),0),late:debts.filter(isOverdue).reduce((s,d)=>s+debtBalance(d),0)}
+  return {...c,amount:debts.reduce((s,d)=>s+debtBalance(d),0),late:debts.filter(d=>isOverdue(d)).reduce((s,d)=>s+debtBalance(d),0)}
 }).filter(c=>c.amount>0).sort((a,b)=>b.late-a.late))
 </script>
 <template>
