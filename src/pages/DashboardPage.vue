@@ -10,6 +10,7 @@ import { can } from '@/access'
 import { useDistributionStore } from '@/stores/distribution'
 import { dayOffset, debtBalance, displayDate, isOverdue, money, orderTotal, qty } from '@/utils/domain'
 import { routeProgress } from '@/utils/routeProgress'
+import { expiryState, outletLastChecks } from '@/utils/expiry'
 const store=useDistributionStore()
 const outstanding=computed(()=>store.visibleDebts.reduce((sum,d)=>sum+debtBalance(d),0))
 const overdue=computed(()=>store.visibleDebts.filter(d=>isOverdue(d)).reduce((sum,d)=>sum+debtBalance(d),0))
@@ -17,6 +18,8 @@ const openOrders=computed(()=>store.visibleOrders.filter(o=>!['delivered','cance
 const shipments=computed(()=>store.visibleOrders.filter(o=>o.deliveryDate===dayOffset(0) && ['ready','in_route','delivered'].includes(o.status)))
 const recentOrders=computed(()=>[...store.visibleOrders].sort((a,b)=>b.createdAt.localeCompare(a.createdAt)).slice(0,6))
 const routesToday=computed(()=>store.visibleRoutes.filter(r=>r.date===dayOffset(0)))
+const expiringBatches=computed(()=>store.data.stockBatches.filter(b=>b.remainingQty>0&&['expired','urgent'].includes(expiryState(b.expiryDate))))
+const storeAlerts=computed(()=>store.visibleOutlets.flatMap(o=>outletLastChecks(store.data.outletStockChecks,o.id)).filter(x=>x.quantity>0&&['expired','urgent'].includes(expiryState(x.expiryDate))))
 const todayVisits=computed(()=>store.visibleVisits.filter(v=>v.plannedDate===dayOffset(0)))
 const visitsToDo=computed(()=>todayVisits.value.filter(v=>v.status==='planned'||v.status==='in_progress'))
 const incidents=computed(()=>store.visibleRoutes.flatMap(r=>r.stops.filter(s=>s.status==='partial'||s.status==='failed').map(s=>({
@@ -74,6 +77,12 @@ const todayLabel=computed(()=>new Intl.DateTimeFormat('ru-RU',{day:'numeric',mon
       </SectionCard>
     </div>
     <div class="dashboard-aside">
+      <SectionCard v-if="can(store.currentRole,'inventory')" title="Контроль сроков" description="Товары с критическим сроком годности">
+        <div class="visits-summary-row"><span>Партии на складах</span><strong>{{expiringBatches.length}}</strong></div>
+        <div v-if="can(store.currentRole,'storestock')" class="visits-summary-row"><span>Сверки у магазинов</span><strong>{{storeAlerts.length}}</strong></div>
+        <router-link class="text-link" to="/inventory">Партии и сроки →</router-link>
+        <router-link v-if="can(store.currentRole,'storestock')" class="text-link" to="/store-stock">Проверки магазинов →</router-link>
+      </SectionCard>
       <SectionCard v-if="can(store.currentRole,'visits')" title="Посещения сегодня" description="Задачи торговых представителей">
         <div class="visits-summary-row"><span>Всего визитов</span><strong>{{todayVisits.length}}</strong></div>
         <div class="visits-summary-row"><span>Выполнены</span><strong>{{todayVisits.filter(v=>v.status==='completed').length}}</strong></div>

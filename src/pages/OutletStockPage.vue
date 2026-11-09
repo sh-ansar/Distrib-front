@@ -32,6 +32,14 @@ const checkRows=computed(()=>outletLastChecks(store.data.outletStockChecks,selec
   status:expiryState(c.expiryDate),
 })).filter(c=>(!filter.value||c.status===filter.value)&&matchesSearch(search.value,[c.productName,c.batchNumber])))
 const urgent=computed(()=>checkRows.value.filter(c=>c.status==='expired'||c.status==='urgent'))
+const allAlerts=computed(()=>store.visibleOutlets.flatMap(outlet=>
+  outletLastChecks(store.data.outletStockChecks,outlet.id)
+    .filter(check=>check.quantity>0&&['expired','urgent'].includes(expiryState(check.expiryDate)))
+    .map(check=>({
+      ...check,outletName:outlet.name,
+      productName:store.data.products.find(p=>p.id===check.productId)?.name||check.productId,
+    }))
+  ).sort((a,b)=>a.expiryDate.localeCompare(b.expiryDate)))
 const shipmentCols=[
   {key:'deliveredAt',label:'Отгружено'}, {key:'productName',label:'Товар'},
   {key:'batchNumber',label:'Партия'}, {key:'quantity',label:'Количество'},
@@ -59,6 +67,15 @@ function who(id:string){return store.data.employees.find(e=>e.id===id)?.name||'�
   <PageTitle title="Товар у клиентов" subtitle="Поставки по партиям и фактически сверенные остатки в магазинах">
     <button v-if="selected&&can(store.currentRole,'visits:edit')" class="btn btn-primary" @click="open">Проверить остаток магазина</button>
   </PageTitle>
+  <SectionCard v-if="allAlerts.length" title="Сроки годности у клиентов" description="Кому нужно позвонить и что проверить на полке — только последние ручные сверки">
+    <div class="outlet-expiry-alerts">
+      <router-link v-for="item in allAlerts.slice(0,15)" :key="item.id" :to="'/store-stock?outlet='+item.outletId" class="outlet-expiry-alert">
+        <div><strong>{{item.outletName}}</strong><span>{{item.productName}} · партия {{item.batchNumber}}</span></div>
+        <div><strong>{{item.quantity}} ед.</strong><small>{{displayDate(item.expiryDate)}}</small></div>
+        <StatusBadge :status="expiryState(item.expiryDate)==='expired'?'failed':'partial'" :label="expiryLabel(item.expiryDate)" />
+      </router-link>
+    </div>
+  </SectionCard>
   <div class="outlet-stock-layout">
     <SectionCard title="Выбор торговой точки" description="Найдите магазин или юридическое лицо">
       <label class="field"><span>Поиск магазинов</span><input v-model="search" placeholder="Компания, магазин, адрес..." /></label>

@@ -55,7 +55,7 @@ const columns=[
 const lotCols=[
   {key:'batchNumber',label:'Партия'}, {key:'name',label:'Товар'}, {key:'receivedDate',label:'Приход'},
   {key:'initialQty',label:'Поступило'}, {key:'remainingQty',label:'Остаток'},
-  {key:'expiryDate',label:'Годен до'},{key:'expiryStatus',label:'Контроль'},
+  {key:'expiryDate',label:'Годен до'},{key:'supplier',label:'Поставщик'},{key:'expiryStatus',label:'Контроль'},
 ]
 function openReceipt(){form.warehouseId=warehouse.value;error.value='';modal.value=true}
 function save(){

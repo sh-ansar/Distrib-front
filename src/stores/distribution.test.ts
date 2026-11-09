@@ -114,7 +114,7 @@ describe('demo domain workflows', () => {
     s.moveRoute(route.id,'active')
     const stock=s.data.stocks.find(x=>x.productId==='p1'&&x.warehouseId==='w1')!
     stock.onHand=0
-    expect(()=>s.finishStop(route.id,route.stops[0]!.id,'delivered','')).toThrow('Недостаточно учтённого товара')
+    expect(()=>s.finishStop(route.id,route.stops[0]!.id,'delivered','')).toThrow('Недостаточно товара или резерва')
     expect(route.stops[0]!.status).toBe('pending')
     expect(s.data.orders.find(o=>o.id==='ord3')?.status).toBe('in_route')
   })

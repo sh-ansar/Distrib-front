@@ -804,3 +804,16 @@ a:hover,.text-link:hover{color:#1c4cae}
 .stock-monitor-stats span{font-size:9px}
 .stock-monitor-stats strong{font-size:16px}
 }
+
+/* Cross-store expiry alerts use a vertical layout on small screens. */
+.outlet-expiry-alerts{display:flex;flex-direction:column;gap:0}
+.outlet-expiry-alert{display:grid;grid-template-columns:minmax(0,2fr) minmax(92px,.7fr) auto;align-items:center;gap:16px;padding:12px 0;border-bottom:1px solid var(--line);min-width:0}
+.outlet-expiry-alert:last-child{border-bottom:0}
+.outlet-expiry-alert>div{display:flex;flex-direction:column;gap:5px;min-width:0}
+.outlet-expiry-alert strong{font-size:11px;color:#214975;overflow-wrap:anywhere}
+.outlet-expiry-alert span,.outlet-expiry-alert small{font-size:10px;color:#7b91ad;overflow-wrap:anywhere}
+.outlet-expiry-alert .status-badge{justify-self:end}
+@media(max-width:790px){
+ .outlet-expiry-alert{grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:11px}
+ .outlet-expiry-alert .status-badge{grid-column:1/-1;justify-self:start}
+}
