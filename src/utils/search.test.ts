@@ -15,7 +15,7 @@ describe('directory and company search', () => {
     const demo = createDemoData()
     expect(demo.customers.length).toBe(56)
     expect(demo.outlets.length).toBe(107)
-    expect(demo.version).toBe(3)
+    expect(demo.version).toBe(4)
   })
   it('matches company names without case or punctuation sensitivity', () => {
     expect(matchesSearch('  ДАЛА фуд ', ['ТОО «Дала Фуд»'])).toBe(true)
