@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { can, type Capability } from '@/access'
 import { createDemoData } from '@/data/seed'
-import type { Activity, Customer, Debt, DeliveryRoute, DistributionData, DocumentRecord, Employee, Order, OrderItem, OrderStatus, Outlet, Role, RouteStatus, StopStatus } from '@/types/domain'
+import type { Activity, Customer, Debt, DeliveryRoute, DistributionData, DocumentRecord, Employee, Order, OrderItem, OrderStatus, Outlet, Role, RouteStatus, StopStatus, Visit, VisitStatus } from '@/types/domain'
 import { canTransitionOrder, consignmentBalance, debtBalance, isoDay, orderTotal, orderWeight, uid } from '@/utils/domain'
 
 const STORAGE_KEY = 'itp-distribution-demo-v1'
@@ -17,10 +17,10 @@ function clone<T>(value: T): T { return JSON.parse(JSON.stringify(value)) as T }
 function validDemo(data: unknown): data is DistributionData {
   if (!data || typeof data !== 'object') return false
   const candidate = data as Record<string, unknown>
-  return candidate.version === 1 && [
+  return (candidate.version === 1 || candidate.version === 2) && [
     'customers','outlets','products','warehouses','stocks','orders','debts','consignments',
     'employees','vehicles','routes','documents','activities',
-  ].every(key => Array.isArray(candidate[key]))
+  ].every(key => Array.isArray(candidate[key])) && (candidate.version === 1 || Array.isArray(candidate.visits))
 }
 function cleanNumber(value: number): boolean { return Number.isFinite(value) && value >= 0 }
 
@@ -49,6 +49,10 @@ export const useDistributionStore = defineStore('distribution', {
       const ids = new Set(this.visibleOutlets.map(o => o.id))
       return this.data.orders.filter(o => ids.has(o.outletId))
     },
+    visibleVisits(): Visit[] {
+      const ids = new Set(this.visibleOutlets.map(o => o.id))
+      return this.data.visits.filter(v => ids.has(v.outletId))
+    },
     visibleDebts(): Debt[] {
       const ids = new Set(this.visibleOutlets.map(o => o.customerId))
       return this.data.debts.filter(d => ids.has(d.customerId))
@@ -71,7 +75,10 @@ export const useDistributionStore = defineStore('distribution', {
         const saved = localStorage.getItem(STORAGE_KEY)
         if (saved) {
           const parsed: unknown = JSON.parse(saved)
-          if (validDemo(parsed)) this.data = parsed
+          if (validDemo(parsed)) {
+            // Upgrade existing browser demo records without dropping user edits.
+            this.data = { ...parsed, version: 2, visits: Array.isArray(parsed.visits) ? parsed.visits : [] }
+          }
         }
         const userId = localStorage.getItem(USER_KEY)
         if (userId && this.data.employees.some(e => e.id === userId && e.active)) this.currentUserId = userId
@@ -142,6 +149,46 @@ export const useDistributionStore = defineStore('distribution', {
       this.log('outlet',id,'updated','Обновлена карточка торговой точки')
       this.persist()
     },
+    createVisit(payload: {outletId:string;plannedDate:string;purpose:string}): Visit {
+      this.require('visits:edit')
+      const outlet = this.visibleOutlets.find(o => o.id === payload.outletId && o.active)
+      invariant(outlet, 'Выберите доступную торговую точку.')
+      invariant(payload.plannedDate >= isoDay(), 'Нельзя назначить новый визит на прошедший день.')
+      invariant(payload.purpose.trim().length >= 3, 'Укажите цель визита.')
+      invariant(!this.data.visits.some(v => v.outletId === outlet.id && v.plannedDate === payload.plannedDate && ['planned','in_progress'].includes(v.status)),
+        'На эту дату уже запланирован активный визит в магазин.')
+      const visit: Visit = {id:uid('vi'),outletId:outlet.id,repId:outlet.repId,
+        plannedDate:payload.plannedDate,purpose:payload.purpose.trim(),status:'planned',notes:''}
+      this.data.visits.push(visit)
+      this.log('outlet',outlet.id,'visit','Запланирован визит на '+visit.plannedDate+': '+visit.purpose)
+      this.persist()
+      return visit
+    },
+    startVisit(id:string) {
+      this.require('visits:edit')
+      const visit=this.visibleVisits.find(v=>v.id===id)
+      invariant(visit, 'Визит недоступен.')
+      invariant(visit.status==='planned', 'Визит уже начался или завершён.')
+      invariant(visit.plannedDate<=isoDay(), 'Визит запланирован на будущую дату.')
+      visit.status='in_progress'
+      visit.startedAt=new Date().toISOString()
+      this.log('outlet',visit.outletId,'visit','Торговый представитель начал визит')
+      this.persist()
+    },
+    finishVisit(id:string, status: Extract<VisitStatus,'completed'|'skipped'>, notes:string) {
+      this.require('visits:edit')
+      const visit=this.visibleVisits.find(v=>v.id===id)
+      invariant(visit, 'Визит недоступен.')
+      invariant(status==='completed' || status==='skipped', 'Недопустимый итог визита.')
+      invariant(status==='skipped' ? ['planned','in_progress'].includes(visit.status) : visit.status==='in_progress',
+        'Недопустимый переход статуса визита.')
+      invariant(notes.trim().length>=5, 'Укажите итог или причину пропуска (не менее 5 символов).')
+      visit.status=status
+      visit.notes=notes.trim()
+      visit.finishedAt=new Date().toISOString()
+      this.log('outlet',visit.outletId,'visit',status==='completed'?'Визит завершён: '+visit.notes:'Визит не состоялся: '+visit.notes)
+      this.persist()
+    },
     addOutletNote(outletId: string, message: string) {
       this.require('outlets:edit')
       invariant(this.visibleOutlets.some(o => o.id === outletId), 'Торговая точка недоступна.')
@@ -174,9 +221,10 @@ export const useDistributionStore = defineStore('distribution', {
       for (const item of payload.items) {
         invariant(!unique.has(item.productId), 'Один товар нельзя добавлять дважды.')
         unique.add(item.productId)
-        invariant(!!this.data.products.find(p => p.id === item.productId && p.active), 'Товар не найден.')
+        const product = this.data.products.find(p => p.id === item.productId && p.active)
+        invariant(product, 'Товар не найден.')
         invariant(Number.isInteger(item.quantity) && item.quantity > 0, 'Количество должно быть положительным целым числом.')
-        invariant(Number.isFinite(item.price) && item.price >= 0, 'Некорректная цена.')
+        invariant(Number.isFinite(item.price) && item.price === product.price, 'Цена товара изменилась. Обновите заявку по актуальному прайсу.')
       }
       const order:Order = {
         id:uid('ord'), number:'З-'+String(2401 + this.data.orders.length).padStart(4,'0'),
@@ -197,8 +245,13 @@ export const useDistributionStore = defineStore('distribution', {
       const customer = this.data.customers.find(c => c.id === order.customerId)
       if (to === 'confirmed') {
         invariant(customer?.status === 'active', 'Контрагент заблокирован.')
-        const exposure = this.data.debts.filter(d => d.customerId === order.customerId).reduce((sum,d)=>sum+debtBalance(d),0)
-        invariant(exposure + orderTotal(order) <= (customer.creditLimit ?? 0), 'Заказ превысит кредитный лимит контрагента.')
+        const debtExposure = this.data.debts.filter(d => d.customerId === order.customerId).reduce((sum,d)=>sum+debtBalance(d),0)
+        // Account for confirmed but not yet invoiced orders to avoid double spending the same credit limit.
+        const openOrders = this.data.orders.filter(o => o.customerId === order.customerId &&
+          o.id !== order.id && ['confirmed','picking','ready','in_route'].includes(o.status))
+          .reduce((sum,o)=>sum+orderTotal(o),0)
+        invariant(debtExposure + openOrders + orderTotal(order) <= (customer.creditLimit ?? 0),
+          'Заказ превысит кредитный лимит с учётом уже подтверждённых заявок.')
         for (const item of order.items) invariant(this.freeInPrimary(item.productId)>=item.quantity,'Недостаточно остатков основного склада.')
         for (const item of order.items) this.adjustReservation(item.productId,item.quantity)
       }
@@ -294,24 +347,29 @@ export const useDistributionStore = defineStore('distribution', {
       const stop=route.stops.find(s=>s.id===stopId)
       invariant(stop?.status==='pending','Точка уже обработана.')
       invariant(status==='delivered'||notes.trim().length>=5,'Для отказа или частичной доставки укажите причину.')
-      for(const id of stop.orderIds) {
-        const order=this.data.orders.find(o=>o.id===id)
-        if(!order)continue
-        if(status==='delivered') {
-          for(const item of order.items) {
-            const stock=this.data.stocks.find(s=>s.warehouseId==='w1'&&s.productId===item.productId)
-            if(stock) {
-              stock.onHand=Math.max(0,stock.onHand-item.quantity)
-              stock.reserved=Math.max(0,stock.reserved-item.quantity)
-              stock.updatedAt=new Date().toISOString()
-            }
-          }
-          order.status='delivered'
-        } else {
-          order.status='partial'
-          // Failed/partial delivery requires financial/stock reconciliation in 1C.
-          // Demo intentionally DOES NOT post a write-off or financial movement.
+      const orders=stop.orderIds.map(id=>this.data.orders.find(o=>o.id===id))
+      invariant(orders.every(o=>o?.status==='in_route'),'В остановке есть недоступные для доставки заявки.')
+      if(status==='delivered') {
+        const demand=new Map<string,number>()
+        for(const order of orders) for(const item of order!.items) {
+          demand.set(item.productId,(demand.get(item.productId)??0)+item.quantity)
         }
+        // Validate all lines before mutating anything; do not silently clamp stock to zero.
+        for(const [productId,count] of demand) {
+          const stock=this.data.stocks.find(s=>s.warehouseId==='w1'&&s.productId===productId)
+          invariant(stock && stock.onHand>=count && stock.reserved>=count,
+            'Недостаточно учтённого товара или резерва. Сверьте склад до подтверждения доставки.')
+        }
+        for(const [productId,count] of demand) {
+          const stock=this.data.stocks.find(s=>s.warehouseId==='w1'&&s.productId===productId)!
+          stock.onHand-=count
+          stock.reserved-=count
+          stock.updatedAt=new Date().toISOString()
+        }
+      }
+      for(const order of orders) {
+        if(order) order.status=status==='delivered'?'delivered':'partial'
+        // Partial/failed delivery leaves reservation untouched until the warehouse reconciles returns.
       }
       stop.status=status
       stop.notes=notes.trim()
@@ -321,8 +379,14 @@ export const useDistributionStore = defineStore('distribution', {
     },
     addDocumentMetadata(entityType:DocumentRecord['entityType'],entityId:string,filename:string,mimeType:string,size:number) {
       this.require('documents:edit')
-      invariant(filename.trim().length>0,'Укажите название документа.')
-      invariant(size<=35*1024*1024,'Максимальный размер файла 35 МБ.')
+      invariant(filename.trim().length>0 && filename.trim().length<=255,'Название документа должно содержать от 1 до 255 символов.')
+      invariant(Number.isFinite(size) && size>=0 && size<=35*1024*1024,'Допустимый размер файла: от 0 до 35 МБ.')
+      const accessible = entityType==='outlet' ? this.visibleOutlets.some(e=>e.id===entityId) :
+        entityType==='customer' ? this.visibleCustomers.some(e=>e.id===entityId) :
+        entityType==='order' ? this.visibleOrders.some(e=>e.id===entityId) :
+        entityType==='route' ? this.visibleRoutes.some(e=>e.id===entityId) :
+        this.visibleRoutes.some(r=>r.stops.some(st=>st.id===entityId))
+      invariant(accessible, 'Нельзя привязать документ к недоступному или несуществующему объекту.')
       // NEVER save actual bytes in localStorage or claim a real upload. Metadata-only demo.
       this.data.documents.unshift({
         id:uid('doc'),entityType,entityId,filename:filename.trim(),mimeType,size,

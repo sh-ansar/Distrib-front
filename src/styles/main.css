@@ -396,3 +396,29 @@ select{appearance:none;background-color:#fff;background-image:url("data:image/sv
   .route-detail-grid{display:block}.route-detail-grid>.stack-lg{margin-top:15px}
   .stop-card{break-inside:avoid}
 }
+
+/* Field sales / visit planning */
+.visits-layout{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(270px,1fr);gap:19px;align-items:start}
+.visit-list{display:flex;flex-direction:column;gap:0}
+.visit-item{display:flex;align-items:flex-start;gap:13px;padding:17px 0;border-bottom:1px solid var(--line)}
+.visit-item:first-child{padding-top:0}.visit-item:last-child{padding-bottom:0;border:0}
+.visit-symbol{display:flex;align-items:center;justify-content:center;flex:none;width:38px;height:38px;border-radius:11px;color:#199e88;background:#edf8f4}
+.visit-symbol.visit-symbol-completed{color:#178f6e;background:#dff4eb}
+.visit-symbol.visit-symbol-skipped{color:#bc625a;background:#fff0ed}
+.visit-content{min-width:0;display:flex;flex:1;flex-direction:column;align-items:flex-start;gap:7px}
+.visit-content-top{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;flex-wrap:wrap}
+.visit-content-top strong{font-size:12px;color:#273e50}
+.visit-purpose{font-size:11px;color:#5e7283;line-height:1.55;margin:0}
+.visit-meta{display:flex;gap:12px;align-items:center;flex-wrap:wrap;color:#899cab;font-size:10px}
+.visit-meta span{display:inline-flex;align-items:center;gap:5px}
+.visit-note{margin:1px 0 0;font-size:11px;line-height:1.6;padding:9px 12px;background:#f6f8f9;border-radius:7px;color:#647688}
+.visit-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:5px}
+.visits-summary{display:flex;flex-direction:column;gap:0}
+.visits-summary-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--line)}
+.visits-summary-row:first-child{padding-top:0}.visits-summary-row:last-child{padding-bottom:0;border:0}
+.visits-summary-row>span{font-size:11px;color:#65798b}.visits-summary-row>strong{font-size:16px;color:#253b4c}
+.visit-progress{height:8px;background:#edf2f2;border-radius:8px;overflow:hidden;margin:15px 0 6px}
+.visit-progress>span{height:100%;display:block;background:#1db69a;transition:width .2s}
+.visit-progress-caption{font-size:10px;color:#90a0ad}
+@media(max-width:1100px){.visits-layout{grid-template-columns:1fr}}
+@media(max-width:540px){.visit-item{gap:9px}.visit-symbol{width:33px;height:33px}.visit-content-top{align-items:flex-start}}

@@ -146,10 +146,24 @@ export interface Activity {
   actorId: string
   createdAt: string
 }
+export type VisitStatus = 'planned' | 'in_progress' | 'completed' | 'skipped'
+export interface Visit {
+  id: string
+  outletId: string
+  repId: string
+  plannedDate: string
+  status: VisitStatus
+  purpose: string
+  notes: string
+  startedAt?: string
+  finishedAt?: string
+}
+
 export interface DistributionData {
   version: number
   customers: Customer[]
   outlets: Outlet[]
+  visits: Visit[]
   products: Product[]
   warehouses: Warehouse[]
   stocks: Stock[]

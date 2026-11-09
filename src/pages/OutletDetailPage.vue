@@ -17,6 +17,7 @@ const outlet=computed(()=>store.visibleOutlets.find(o=>o.id===String(route.param
 const customer=computed(()=>store.data.customers.find(c=>c.id===outlet.value?.customerId))
 const debts=computed(()=>store.visibleDebts.filter(d=>d.customerId===outlet.value?.customerId))
 const orders=computed(()=>store.visibleOrders.filter(o=>o.outletId===outlet.value?.id).sort((a,b)=>b.createdAt.localeCompare(a.createdAt)))
+const visits=computed(()=>store.visibleVisits.filter(v=>v.outletId===outlet.value?.id).sort((a,b)=>b.plannedDate.localeCompare(a.plannedDate)))
 const consignments=computed(()=>store.data.consignments.filter(c=>c.outletId===outlet.value?.id))
 const docs=computed(()=>store.data.documents.filter(d=>(d.entityType==='outlet'&&d.entityId===outlet.value?.id)||(d.entityType==='customer'&&d.entityId===customer.value?.id)))
 const history=computed(()=>store.data.activities.filter(a=>(a.entityType==='outlet'&&a.entityId===outlet.value?.id)||(a.entityType==='customer'&&a.entityId===customer.value?.id)).sort((a,b)=>b.createdAt.localeCompare(a.createdAt)))
@@ -59,7 +60,7 @@ function addDoc(){
       <div class="detail-stat"><span>Контакт</span><strong>{{outlet.contactName||'—'}}</strong><a v-if="outlet.phone" :href="phoneLink(outlet.phone)">{{outlet.phone}}</a><small v-else>Телефон не указан</small></div>
     </div>
     <div class="tab-bar" role="tablist" aria-label="Разделы карточки">
-      <button v-for="tab in [{id:'overview',label:'Обзор'},{id:'orders',label:'Заявки'},{id:'debts',label:'Дебиторка'},{id:'consignment',label:'Под реализацию'},{id:'documents',label:'Документы'},{id:'history',label:'История'}].filter(t=>t.id!=='debts'&&t.id!=='consignment'||can(store.currentRole,t.id==='debts'?'debts':'consignment'))"
+      <button v-for="tab in [{id:'overview',label:'Обзор'},{id:'orders',label:'Заявки'},{id:'visits',label:'Визиты'},{id:'debts',label:'Дебиторка'},{id:'consignment',label:'Под реализацию'},{id:'documents',label:'Документы'},{id:'history',label:'История'}].filter(t=>t.id!=='debts'&&t.id!=='consignment'&&t.id!=='visits'||can(store.currentRole,t.id==='debts'?'debts':t.id==='visits'?'visits':'consignment'))"
         :key="tab.id" type="button" role="tab" :aria-selected="activeTab===tab.id" :class="{'selected':activeTab===tab.id}" @click="activeTab=tab.id">{{tab.label}}</button>
     </div>
     <div v-if="activeTab==='overview'" class="two-col-layout">
@@ -84,6 +85,14 @@ function addDoc(){
     <SectionCard v-else-if="activeTab==='orders'" title="Заявки магазина" description="От создания до подтверждённой доставки">
       <EmptyState v-if="!orders.length" title="Заявок нет" />
       <router-link v-for="order in orders" :key="order.id" to="/orders" class="detail-item-row"><div><strong>{{order.number}}</strong><small>Доставка {{displayDate(order.deliveryDate)}} · {{order.items.length}} позиций</small></div><strong>{{money(orderTotal(order))}}</strong><StatusBadge :status="order.status" /><AppIcon name="chevron-right" :size="17" /></router-link>
+    </SectionCard>
+    <SectionCard v-else-if="activeTab==='visits'" title="История посещений" description="Плановые визиты, итоги и причины пропусков">
+      <template #action><router-link v-if="can(store.currentRole,'visits')" to="/visits" class="text-link">Открыть план <AppIcon name="arrow-right" :size="15" /></router-link></template>
+      <div v-for="visit in visits" :key="visit.id" class="detail-item-row">
+        <div><strong>{{visit.purpose}}</strong><small>{{displayDate(visit.plannedDate)}} · {{store.data.employees.find(e=>e.id===visit.repId)?.name}}</small><small v-if="visit.notes">{{visit.notes}}</small></div>
+        <StatusBadge :status="visit.status" :label="visit.status==='completed'?'Завершён':visit.status==='skipped'?'Не состоялся':visit.status==='in_progress'?'В работе':'Запланирован'" />
+      </div>
+      <EmptyState v-if="!visits.length" title="Посещений ещё нет" />
     </SectionCard>
     <SectionCard v-else-if="activeTab==='debts'" title="Расчёты по контрагенту" description="Задолженность учитывается на уровне юридического лица, не отдельного магазина">
       <div v-for="debt in debts" :key="debt.id" class="detail-item-row"><div><strong>{{debt.invoice}}</strong><small>Срок оплаты {{displayDate(debt.dueAt)}}</small></div><strong :class="{'text-danger':isOverdue(debt)}">{{money(debtBalance(debt))}}</strong><StatusBadge :status="isOverdue(debt)?'failed':'planned'" :label="isOverdue(debt)?'Просрочено':'В срок'" /></div>

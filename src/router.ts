@@ -8,6 +8,7 @@ export const router = createRouter({
   routes: [
     {path:'/',component:()=>import('@/pages/DashboardPage.vue'),meta:{section:'dashboard',title:'Обзор'}},
     {path:'/outlets',component:()=>import('@/pages/OutletsPage.vue'),meta:{section:'outlets',title:'Торговые точки'}},
+    {path:'/visits',component:()=>import('@/pages/VisitsPage.vue'),meta:{section:'visits',title:'Визиты торговых представителей'}},
     {path:'/outlets/:id',component:()=>import('@/pages/OutletDetailPage.vue'),meta:{section:'outlets',title:'Карточка магазина'}},
     {path:'/orders',component:()=>import('@/pages/OrdersPage.vue'),meta:{section:'orders',title:'Заявки'}},
     {path:'/debts',component:()=>import('@/pages/DebtsPage.vue'),meta:{section:'debts',title:'Дебиторская задолженность'}},
