@@ -102,7 +102,7 @@ const plannerError=computed(()=>{
 function openPlanner(){
   plannerStart.value=day.value>=isoDay()?day.value:isoDay()
   plannerRep.value=store.currentRole==='sales'?store.currentUserId:repId.value
-  plannerLimit.value=6
+  // Preserve the user's selected daily limit when reopening the preview.
   error.value=''
   showPlanner.value=true
 }
