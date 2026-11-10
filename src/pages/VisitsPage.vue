@@ -11,6 +11,7 @@ import { can } from '@/access'
 import { useDistributionStore } from '@/stores/distribution'
 import { displayDate, isoDay } from '@/utils/domain'
 import type { VisitStatus } from '@/types/domain'
+import { planWorkingVisits } from '@/utils/visitPlanner'
 const store=useDistributionStore()
 const route=useRoute()
 const search=ref('')
@@ -19,6 +20,10 @@ const focusedOutlet=ref(String(route.query.outlet??''))
 const status=ref('')
 const repId=ref('')
 const showNew=ref(false)
+const showPlanner=ref(false)
+const plannerStart=ref(isoDay())
+const plannerLimit=ref(6)
+const plannerRep=ref('')
 const outcomeId=ref('')
 const outcome=ref<'completed'|'skipped'>('completed')
 const outcomeNotes=ref('')
@@ -79,10 +84,46 @@ const report=computed(()=>{
   const total=dayTotal.value
   return total?Math.round(100*completed.value/total):0
 })
+const plannerReps=computed(()=>{
+  const ids=new Set(store.visibleOutlets.map(o=>o.repId))
+  return store.data.employees.filter(e=>e.role==='sales'&&e.active&&ids.has(e.id))
+})
+const plannerPlan=computed(()=>{
+  try{return planWorkingVisits({
+    outlets:store.visibleOutlets,visits:store.visibleVisits,
+    startDate:plannerStart.value,dailyLimit:plannerLimit.value,repId:plannerRep.value,
+  })}catch{return {dates:[] as string[],proposals:[] as ReturnType<typeof planWorkingVisits>['proposals']}}
+})
+const plannerError=computed(()=>{
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(plannerStart.value) || !plannerPlan.value.dates.length)return 'Проверьте дату начала и дневной лимит.'
+  if(!plannerPlan.value.proposals.length)return 'Все доступные места заняты или торговые точки уже включены в план.'
+  return ''
+})
+function openPlanner(){
+  plannerStart.value=day.value>=isoDay()?day.value:isoDay()
+  plannerRep.value=store.currentRole==='sales'?store.currentUserId:repId.value
+  // Preserve the user's selected daily limit when reopening the preview.
+  error.value=''
+  showPlanner.value=true
+}
+function savePlanner(){
+  error.value=''
+  try{
+    const proposals=plannerPlan.value.proposals
+    if(!proposals.length)throw new Error('Нет новых визитов для сохранения.')
+    const created=store.createVisitsBatch({items:proposals.map(p=>({
+      outletId:p.outletId,plannedDate:p.plannedDate,purpose:p.purpose,
+    })),dailyLimit:plannerLimit.value})
+    showPlanner.value=false
+    day.value=plannerPlan.value.dates[0]||day.value
+    store.notify('План сохранён: '+created.length+' визитов на пять рабочих дней.')
+  }catch(e){error.value=e instanceof Error?e.message:'Не удалось сохранить план визитов.'}
+}
 const statuses:Record<VisitStatus,string>={planned:'Запланирован',in_progress:'В работе',completed:'Завершён',skipped:'Не состоялся'}
 </script>
 <template>
   <PageTitle eyebrow="ПОЛЕВАЯ КОМАНДА" title="Визиты торговых представителей" subtitle="Планирование посещений магазинов, итоги встреч и история работы с точками">
+    <button v-if="can(store.currentRole,'visits:edit')" class="btn btn-secondary" @click="openPlanner"><AppIcon name="calendar-days" :size="18" /> План на неделю</button>
     <button v-if="can(store.currentRole,'visits:edit')" class="btn btn-primary" @click="openNew"><AppIcon name="plus" :size="18" /> Запланировать визит</button>
   </PageTitle>
   <div class="metrics-grid">
@@ -140,6 +181,44 @@ const statuses:Record<VisitStatus,string>={planned:'Запланирован',in
       <div class="inline-notice"><AppIcon name="info" :size="18" /><div><strong>GPS и фотоотчёты пока не включены</strong><p>В демо не собираются координаты сотрудников. Геоотметки и фотографии требуют согласованных правил хранения и прав доступа.</p></div></div>
     </div>
   </div>
+  <ModalShell :open="showPlanner" title="План визитов на пять рабочих дней" subtitle="Предпросмотр без изменения данных до подтверждения" size="lg" @close="showPlanner=false">
+    <form class="stack-lg" @submit.prevent="savePlanner">
+      <div class="form-grid">
+        <label class="field"><span>Начало периода</span><input v-model="plannerStart" type="date" :min="isoDay()" required /></label>
+        <label class="field"><span>Визитов в день на сотрудника</span><input v-model.number="plannerLimit" type="number" min="1" max="12" step="1" required /></label>
+        <label v-if="plannerReps.length>1&&store.currentRole!=='sales'" class="field field-wide"><span>Торговый представитель</span>
+          <select v-model="plannerRep"><option value="">Вся торговая команда</option><option v-for="rep in plannerReps" :key="rep.id" :value="rep.id">{{rep.name}}</option></select>
+        </label>
+      </div>
+      <p class="muted small">Рабочие дни: понедельник–пятница. Группировка по району условная, без расчёта расстояний и времени в пути. Существующие визиты не меняются, повторные точки не назначаются.</p>
+      <div class="planner-summary">
+        <div><strong>{{plannerPlan.proposals.length}}</strong><span>Новых визитов</span></div>
+        <div><strong>{{new Set(plannerPlan.proposals.map(p=>p.repId)).size}}</strong><span>Представителей</span></div>
+        <div><strong>{{plannerPlan.dates.length}}</strong><span>Рабочих дней</span></div>
+      </div>
+      <div v-if="plannerPlan.dates.length" class="planner-days">
+        <div v-for="date in plannerPlan.dates" :key="date">
+          <strong>{{displayDate(date)}}</strong>
+          <span>{{plannerPlan.proposals.filter(p=>p.plannedDate===date).length}} новых визитов</span>
+        </div>
+      </div>
+      <div v-if="plannerPlan.proposals.length" class="planner-preview">
+        <strong>Предварительный список — первые 15 точек</strong>
+        <div v-for="proposal in plannerPlan.proposals.slice(0,15)" :key="proposal.outletId">
+          <span>{{displayDate(proposal.plannedDate)}} · {{repName(proposal.repId)}}</span>
+          <strong>{{proposal.outletName}}</strong>
+          <small>{{proposal.district}}</small>
+        </div>
+        <p v-if="plannerPlan.proposals.length>15" class="muted small">Ещё {{plannerPlan.proposals.length-15}} точек будут добавлены после подтверждения.</p>
+      </div>
+      <p v-if="plannerError" class="inline-notice" role="status">{{plannerError}}</p>
+      <p v-if="error" class="form-error" role="alert">{{error}}</p>
+      <div class="form-footer">
+        <button type="button" class="btn btn-secondary" @click="showPlanner=false">Отмена</button>
+        <button type="submit" class="btn btn-primary" :disabled="!plannerPlan.proposals.length||!!plannerError">Сохранить {{plannerPlan.proposals.length}} визитов</button>
+      </div>
+    </form>
+  </ModalShell>
   <ModalShell :open="showNew" title="Новый визит" subtitle="Назначьте посещение магазина и цель работы" @close="showNew=false">
     <form class="stack-lg" @submit.prevent="createVisit">
       <label class="field"><span>Торговая точка *</span><select v-model="form.outletId" required><option value="">Выберите магазин</option><option v-for="o in store.visibleOutlets.filter(o=>o.active)" :key="o.id" :value="o.id">{{o.name}} · {{o.district}}</option></select></label>

@@ -6,6 +6,7 @@ import { companyProfile } from '@/utils/company'
 import { createDemoData } from '@/data/seed'
 import { sampleWaybill } from '@/utils/waybill'
 import { sellableQty } from '@/utils/expiry'
+import { planWorkingVisits, workingDates } from '@/utils/visitPlanner'
 
 beforeEach(()=>{setActivePinia(createPinia())})
 afterEach(()=>vi.unstubAllGlobals())
@@ -79,6 +80,56 @@ describe('demo domain workflows', () => {
     const payload={outletId:'o1',plannedDate:dayOffset(2),purpose:'Сбор нового заказа'}
     s.createVisit(payload)
     expect(()=>s.createVisit(payload)).toThrow('уже запланирован')
+  })
+  it('saves a weekly plan as validated visits and history records',()=>{
+    const s=useDistributionStore()
+    const start=workingDates(dayOffset(2))[0]!
+    const plan=planWorkingVisits({outlets:s.visibleOutlets,visits:s.visibleVisits,startDate:start,dailyLimit:3,repId:'u4'})
+    const initialVisits=s.data.visits.length
+    const initialActivities=s.data.activities.length
+    const added=s.createVisitsBatch({
+      dailyLimit:3,items:plan.proposals.map(p=>({
+        outletId:p.outletId,plannedDate:p.plannedDate,purpose:p.purpose,
+      })),
+    })
+    expect(added.length).toBe(plan.proposals.length)
+    expect(s.data.visits.length).toBe(initialVisits+added.length)
+    expect(s.data.activities.length).toBe(initialActivities+added.length)
+    expect(added.every(v=>v.repId==='u4'&&v.status==='planned')).toBe(true)
+  })
+  it('does not partially save a batch with invalid, duplicated or over-capacity rows',()=>{
+    const s=useDistributionStore()
+    const date=workingDates(dayOffset(8))[0]!
+    const originalVisits=s.data.visits.length
+    const originalActivities=s.data.activities.length
+    const purpose='Проверка остатков магазина'
+    expect(()=>s.createVisitsBatch({dailyLimit:3,items:[
+      {outletId:'o1',plannedDate:date,purpose},
+      {outletId:'missing-outlet',plannedDate:date,purpose},
+    ]})).toThrow('недоступный')
+    expect(()=>s.createVisitsBatch({dailyLimit:3,items:[
+      {outletId:'o1',plannedDate:date,purpose},
+      {outletId:'o1',plannedDate:date,purpose},
+    ]})).toThrow('повторный')
+    expect(()=>s.createVisitsBatch({dailyLimit:1,items:[
+      {outletId:'o1',plannedDate:date,purpose},
+      {outletId:'o2',plannedDate:date,purpose},
+    ]})).toThrow('дневной лимит')
+    expect(s.data.visits.length).toBe(originalVisits)
+    expect(s.data.activities.length).toBe(originalActivities)
+  })
+  it('prevents unauthorized bulk visit scheduling for other sales territories',()=>{
+    const s=useDistributionStore()
+    s.changeDemoUser('u4')
+    const date=workingDates(dayOffset(8))[0]!
+    const initial=s.data.visits.length
+    expect(()=>s.createVisitsBatch({dailyLimit:2,items:[
+      {outletId:'o1',plannedDate:date,purpose:'Проверка полки'},
+      {outletId:'o6',plannedDate:date,purpose:'Чужая точка'},
+    ]})).toThrow('недоступный')
+    expect(s.data.visits.length).toBe(initial)
+    s.changeDemoUser('u8')
+    expect(()=>s.createVisitsBatch({dailyLimit:2,items:[{outletId:'o1',plannedDate:date,purpose:'Проверка'}]})).toThrow('Недостаточно прав')
   })
   it('requires a real visit start and meaningful closing note',()=>{
     const s=useDistributionStore()
