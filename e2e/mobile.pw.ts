@@ -199,7 +199,7 @@ test('weekly sales visit planner previews, saves and avoids duplicates on mobile
   await page.getByRole('button',{name:'План на неделю'}).click()
   const modal=page.getByRole('dialog')
   await expect(modal).toBeVisible()
-  await expect(modal.getByText('Новых визитов')).toBeVisible()
+  await expect(modal.getByText('Новых визитов', {exact:true})).toBeVisible()
   await modal.getByRole('spinbutton',{name:'Визитов в день на сотрудника'}).fill('2')
   await expect(modal.locator('.planner-days>div')).toHaveCount(5)
   await expect(modal.locator('.planner-preview>div').first()).toBeVisible()
