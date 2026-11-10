@@ -1328,3 +1328,18 @@ a:hover,.text-link:hover{color:#1c4cae}
   .public-directory-summary strong{font-size:16px}
   .public-directory-summary span{font-size:9px}
 }
+
+/* Weekly field visit planner: compact and mobile-safe previews. */
+.planner-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff}
+.planner-summary>div{padding:13px 15px;display:flex;flex-direction:column;gap:4px;border-right:1px solid var(--line)}
+.planner-summary>div:last-child{border-right:0}
+.planner-summary strong{font-size:22px;font-weight:700}
+.planner-summary span,.planner-days span,.planner-preview small{color:var(--muted);font-size:12px}
+.planner-days{display:flex;gap:8px;flex-wrap:wrap}
+.planner-days>div{min-width:128px;flex:1;border:1px solid var(--line);border-radius:9px;padding:11px;display:flex;flex-direction:column;gap:4px}
+.planner-days strong{font-size:13px}
+.planner-preview{display:flex;flex-direction:column;gap:0;max-height:340px;overflow:auto;border:1px solid var(--line);border-radius:10px;padding:12px}
+.planner-preview>strong{font-size:13px;margin-bottom:8px}
+.planner-preview>div{display:grid;grid-template-columns:minmax(155px,1fr) minmax(0,2fr) auto;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);font-size:12px;align-items:center}
+.planner-preview>div strong{min-width:0;overflow-wrap:anywhere}
+@media(max-width:620px){.planner-preview>div{grid-template-columns:minmax(0,1fr);gap:4px}.planner-days>div{min-width:calc(50% - 8px)}.planner-summary>div{padding:9px}.planner-summary strong{font-size:19px}}
