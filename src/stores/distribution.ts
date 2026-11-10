@@ -220,6 +220,49 @@ export const useDistributionStore = defineStore('distribution', {
       this.persist()
       return visit
     },
+    createVisitsBatch(payload: {items: Array<{outletId:string;plannedDate:string;purpose:string}>;dailyLimit:number}): Visit[] {
+      this.require('visits:edit')
+      invariant(Number.isInteger(payload.dailyLimit) && payload.dailyLimit >= 1 && payload.dailyLimit <= 12,
+        'Допустимо от 1 до 12 визитов на сотрудника в день.')
+      invariant(payload.items.length > 0 && payload.items.length <= 180, 'План должен содержать от 1 до 180 визитов.')
+      const visible = new Map(this.visibleOutlets.filter(o => o.active).map(o => [o.id, o]))
+      const seen = new Set<string>()
+      const occupied = new Map<string, number>()
+      for (const visit of this.data.visits) {
+        const key = visit.repId + ':' + visit.plannedDate
+        occupied.set(key, (occupied.get(key) || 0) + 1)
+      }
+      const validated = payload.items.map(item => {
+        const outlet = visible.get(item.outletId)
+        invariant(outlet, 'В плане есть недоступный или неактивный магазин.')
+        invariant(/^\d{4}-\d{2}-\d{2}$/.test(item.plannedDate) && item.plannedDate >= isoDay(),
+          'Нельзя назначить визит на прошедшую или некорректную дату.')
+        const parsed = new Date(item.plannedDate + 'T12:00:00Z')
+        invariant(!Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === item.plannedDate &&
+          ![0, 6].includes(parsed.getUTCDay()), 'Массовый план формируется только на рабочие дни.')
+        invariant(item.purpose.trim().length >= 3, 'Укажите цель визита.')
+        invariant(!this.data.visits.some(v => v.outletId === outlet.id &&
+          v.plannedDate === item.plannedDate && ['planned', 'in_progress'].includes(v.status)),
+          'На эту дату уже запланирован активный визит в магазин.')
+        const uniqueKey = outlet.id + ':' + item.plannedDate
+        invariant(!seen.has(uniqueKey), 'План содержит повторный визит в один магазин.')
+        seen.add(uniqueKey)
+        const capacityKey = outlet.repId + ':' + item.plannedDate
+        const count = (occupied.get(capacityKey) || 0) + 1
+        invariant(count <= payload.dailyLimit, 'Превышен дневной лимит визитов торгового представителя.')
+        occupied.set(capacityKey, count)
+        return {outletId: outlet.id, repId: outlet.repId, plannedDate: item.plannedDate, purpose: item.purpose.trim()}
+      })
+      // All checks finish before any visit or history entry is written.
+      const visits: Visit[] = validated.map(item => ({
+        id: uid('vi'), ...item, status: 'planned', notes: '',
+      }))
+      this.data.visits.push(...visits)
+      for (const visit of visits) this.log('outlet', visit.outletId, 'visit',
+        'Запланирован визит на ' + visit.plannedDate + ': ' + visit.purpose)
+      this.persist()
+      return visits
+    },
     startVisit(id:string) {
       this.require('visits:edit')
       const visit=this.visibleVisits.find(v=>v.id===id)
