@@ -95,7 +95,7 @@ const plannerPlan=computed(()=>{
   })}catch{return {dates:[] as string[],proposals:[] as ReturnType<typeof planWorkingVisits>['proposals']}}
 })
 const plannerError=computed(()=>{
-  if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(plannerStart.value) || !plannerPlan.value.dates.length)return 'Проверьте дату начала и дневной лимит.'
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(plannerStart.value) || !plannerPlan.value.dates.length)return 'Проверьте дату начала и дневной лимит.'
   if(!plannerPlan.value.proposals.length)return 'Все доступные места заняты или торговые точки уже включены в план.'
   return ''
 })
